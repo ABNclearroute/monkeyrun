@@ -18,6 +18,8 @@ Lightweight, CI/CD friendly, single binary — no Appium, no complex setup.
 
 ## Demo
 
+![Monkeyrun in action](assets/demo-screenshot.png)
+
 <video src="assets/demo.mov" controls width="600"></video>
 
 > **[View sample HTML report](assets/demo-report.html)** — a self-contained Playwright-style dark-themed report with timeline, crash cards, screenshots, and logs.
