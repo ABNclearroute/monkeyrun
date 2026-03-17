@@ -1,4 +1,4 @@
-package report
+package engine
 
 import (
 	"encoding/json"
@@ -141,7 +141,7 @@ tbody tr:hover{background:rgba(255,255,255,.03)}
 .badge-type,.badge-clearText{background:rgba(234,179,8,.15);color:var(--yellow)}
 .badge-back,.badge-home{background:rgba(148,163,184,.15);color:var(--text2)}
 .badge-pinchIn,.badge-pinchOut{background:rgba(34,197,94,.15);color:var(--green)}
-.badge-openNotifications{background:rgba(168,85,247,.15);color:var(--purple)}
+
 .badge-rotateDevice{background:rgba(249,115,22,.15);color:var(--orange)}
 .badge-error,.badge-hierarchy{background:rgba(239,68,68,.15);color:var(--red)}
 .status-pass{color:var(--green);font-weight:600}.status-fail{color:var(--red);font-weight:600}
@@ -185,7 +185,7 @@ pre.log-box{background:var(--surface);border:1px solid var(--border);border-radi
     </div>
     <div class="nav-section">
       <h3>Actions</h3>`)
-	for _, act := range []string{"tap", "doubleTap", "longPress", "swipe", "scroll", "type", "back", "pinchIn", "pinchOut", "home", "openNotifications", "clearText", "rotateDevice"} {
+	for _, act := range []string{"tap", "doubleTap", "longPress", "swipe", "scroll", "type", "back", "pinchIn", "pinchOut", "home", "clearText", "rotateDevice"} {
 		if c, ok := actionCounts[act]; ok && c > 0 {
 			fmt.Fprintf(sb, `<div class="nav-item"><span class="action-badge badge-%s">%s</span><span class="count">%d</span></div>`, act, act, c)
 		}
@@ -245,7 +245,7 @@ pre.log-box{background:var(--surface);border:1px solid var(--border);border-radi
       <button class="filter-btn active" onclick="filterRows('all')">All</button>
       <button class="filter-btn" onclick="filterRows('ok')">Passed</button>
       <button class="filter-btn" onclick="filterRows('fail')">Failed</button>`)
-	for _, act := range []string{"tap", "doubleTap", "longPress", "swipe", "scroll", "type", "back", "pinchIn", "pinchOut", "home", "openNotifications", "clearText", "rotateDevice"} {
+	for _, act := range []string{"tap", "doubleTap", "longPress", "swipe", "scroll", "type", "back", "pinchIn", "pinchOut", "home", "clearText", "rotateDevice"} {
 		if actionCounts[act] > 0 {
 			fmt.Fprintf(sb, `<button class="filter-btn" onclick="filterRows('%s')">%s</button>`, act, act)
 		}

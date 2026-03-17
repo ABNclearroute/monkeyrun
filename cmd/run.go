@@ -14,7 +14,6 @@ import (
 	"monkeyrun/crash"
 	"monkeyrun/device"
 	"monkeyrun/engine"
-	"monkeyrun/report"
 
 	"github.com/spf13/cobra"
 )
@@ -101,8 +100,8 @@ func runRun(cmd *cobra.Command, args []string) error {
 
 	det := crash.NewDetector(platform)
 	var eventsMu sync.Mutex
-	var events []report.EventEntry
-	var crashes []report.CrashEntry
+	var events []engine.EventEntry
+	var crashes []engine.CrashEntry
 	var lastEventMu sync.Mutex
 	var lastEventNum int
 
@@ -138,7 +137,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 			lastEventNum = ev.Event
 			lastEventMu.Unlock()
 			eventsMu.Lock()
-			events = append(events, report.EventEntry{
+			events = append(events, engine.EventEntry{
 				Event: ev.Event, Platform: ev.Platform, Action: ev.Action,
 				Element: ev.Element, X: ev.X, Y: ev.Y,
 				Status: ev.Status, Time: ev.Time,
@@ -148,7 +147,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		},
 		OnCrash: func(c engine.CrashInfo) {
 			eventsMu.Lock()
-			crashes = append(crashes, report.CrashEntry{
+			crashes = append(crashes, engine.CrashEntry{
 				Event: c.Event, Message: c.Message,
 				Screenshot: c.Screenshot, LogSnippet: c.LogSnippet,
 			})
@@ -216,7 +215,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 	totalCrashes := len(crashes)
 	eventsMu.Unlock()
 
-	rep := report.Report{
+	rep := engine.Report{
 		Dir: reportDir, Events: events, Crashes: crashes,
 		StartTime: start, EndTime: time.Now(),
 		TotalEvents: n, TotalCrashes: totalCrashes,

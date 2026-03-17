@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"monkeyrun/report"
+	"monkeyrun/engine"
 
 	"github.com/spf13/cobra"
 )
@@ -36,7 +36,7 @@ func runReport(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("read events: %w (run monkeyrun run first)", err)
 	}
-	var events []report.EventEntry
+	var events []engine.EventEntry
 	if err := json.Unmarshal(data, &events); err != nil {
 		return fmt.Errorf("parse events.json: %w", err)
 	}
@@ -53,7 +53,7 @@ func runReport(cmd *cobra.Command, args []string) error {
 	if b, err := os.ReadFile(logPath); err == nil {
 		logLines = splitLines(string(b))
 	}
-	rep := report.Report{
+	rep := engine.Report{
 		Dir:         dir,
 		Events:      events,
 		Screenshots: screenshots,

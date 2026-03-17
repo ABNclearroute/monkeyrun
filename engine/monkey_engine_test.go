@@ -15,10 +15,10 @@ func TestWeightedActionDistribution(t *testing.T) {
 		counts[a]++
 	}
 	expect := map[ActionType]int{
-		Tap: 35, DoubleTap: 8, LongPress: 8,
-		Swipe: 15, Scroll: 8, Type: 4, Back: 4,
+		Tap: 36, DoubleTap: 8, LongPress: 8,
+		Swipe: 16, Scroll: 8, Type: 5, Back: 4,
 		PinchIn: 4, PinchOut: 4, Home: 3,
-		OpenNotifications: 3, ClearText: 2, RotateDevice: 2,
+		ClearText: 2, RotateDevice: 2,
 	}
 	for action, pct := range expect {
 		got := float64(counts[action]) / float64(n) * 100
@@ -36,7 +36,7 @@ func TestAllActionTypesAppear(t *testing.T) {
 		seen[a] = true
 	}
 	all := []ActionType{Tap, DoubleTap, LongPress, Swipe, Scroll, Type, Back,
-		PinchIn, PinchOut, Home, OpenNotifications, ClearText, RotateDevice}
+		PinchIn, PinchOut, Home, ClearText, RotateDevice}
 	for _, a := range all {
 		if !seen[a] {
 			t.Errorf("action %s never appeared in 5000 rolls", a)

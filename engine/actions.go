@@ -16,7 +16,7 @@ const (
 	PinchIn           ActionType = "pinchIn"
 	PinchOut          ActionType = "pinchOut"
 	Home              ActionType = "home"
-	OpenNotifications ActionType = "openNotifications"
+
 	ClearText         ActionType = "clearText"
 	RotateDevice      ActionType = "rotateDevice"
 )

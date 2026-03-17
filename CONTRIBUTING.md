@@ -54,16 +54,15 @@ monkeyrun/
 │   ├── ios_parser.go       Parse WDA /source XML/JSON into UIElements
 │   ├── factory.go          Auto-detect and create devices
 │   └── detect.go           Device discovery helpers
-├── engine/         Monkey engine: action selection, execution, screenshot strategy
+├── engine/         Monkey engine, actions, executor, report, screenshots
 │   ├── monkey_engine.go    Core event loop with UI hierarchy caching
 │   ├── actions.go          Action types and structs
 │   ├── executor.go         Execute actions with human-like delays
 │   ├── screenshot.go       Hybrid screenshot capture with async worker pool
-│   └── replay.go           Replay events from JSON
+│   ├── replay.go           Replay events from JSON
+│   └── report.go           Playwright-style dark-themed HTML report
 ├── crash/          Crash detection from log streams
 │   └── detector.go         Fatal/minor keyword matching
-├── report/         HTML report generation and event logging
-│   └── report.go           Playwright-style dark-themed report
 ├── main.go         Entry point
 ├── Makefile        Build, test, lint targets
 └── .github/        CI workflows, issue/PR templates

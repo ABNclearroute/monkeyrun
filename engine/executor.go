@@ -93,8 +93,6 @@ func execute(ctx context.Context, dev device.Device, action Action) error {
 			scale = 1.5 + rand.Float64()*1.5
 		}
 		return dev.PinchOut(ctx, x, y, scale)
-	case OpenNotifications:
-		return dev.OpenNotifications(ctx)
 	case ClearText:
 		return dev.ClearText(ctx)
 	case RotateDevice:

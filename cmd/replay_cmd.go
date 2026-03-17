@@ -12,7 +12,6 @@ import (
 
 	"monkeyrun/device"
 	"monkeyrun/engine"
-	"monkeyrun/report"
 
 	"github.com/spf13/cobra"
 )
@@ -55,7 +54,7 @@ func runReplay(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("read events: %w", err)
 	}
-	var entries []report.EventEntry
+	var entries []engine.EventEntry
 	if err := json.Unmarshal(data, &entries); err != nil {
 		return fmt.Errorf("parse events.json: %w", err)
 	}

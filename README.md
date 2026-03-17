@@ -9,7 +9,7 @@ Lightweight, CI/CD friendly, single binary — no Appium, no complex setup.
 
 - **CLI-first** — `devices`, `run`, `report`, `replay` commands
 - **Zero setup** — works with existing ADB devices and booted iOS simulators
-- **13 actions** — tap, double-tap, long-press, swipe, scroll, type, back, pinch in/out, home, notifications, clear text, rotate
+- **12 actions** — tap, double-tap, long-press, swipe, scroll, type, back, pinch in/out, home, clear text, rotate
 - **Smart screenshots** — hybrid capture (interval, UI change detection, crash) with async worker pool
 - **Crash detection** — Android (logcat) and iOS (simctl log stream) with severity levels
 - **HTML report** — Playwright-style dark theme with timeline, filters, screenshots, logs
@@ -197,17 +197,16 @@ monkeyrun supports 13 gesture and navigation actions, selected randomly with wei
 
 | Action | Weight | Description |
 |--------|--------|-------------|
-| `tap` | 35% | Single tap on element |
+| `tap` | 36% | Single tap on element |
 | `doubleTap` | 8% | Double tap on element |
 | `longPress` | 8% | Long press (500-1000ms) |
-| `swipe` | 15% | Swipe in random direction |
+| `swipe` | 16% | Swipe in random direction |
 | `scroll` | 8% | Scroll gesture |
-| `type` | 4% | Type random text into input |
+| `type` | 5% | Type random text into input |
 | `back` | 4% | Press back button |
 | `pinchIn` | 4% | Two-finger pinch inward (zoom out) |
 | `pinchOut` | 4% | Two-finger pinch outward (zoom in) |
 | `home` | 3% | Press home button |
-| `openNotifications` | 3% | Pull down notification shade |
 | `clearText` | 2% | Select all and delete text |
 | `rotateDevice` | 2% | Toggle portrait/landscape |
 
@@ -236,7 +235,7 @@ report/
 
 - **CLI** (Cobra) → **Engine** → **Device** interface → **Android** (ADB) / **iOS** (WebDriverAgent + simctl)
 - UI hierarchy: Android via `uiautomator dump`, iOS via WDA `/source`
-- 13 action types with weighted random selection and element-aware smart choices
+- 12 action types with weighted random selection and element-aware smart choices
 
 ## Development
 

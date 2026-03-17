@@ -144,10 +144,6 @@ func (d *AndroidDevice) PinchOut(ctx context.Context, x, y int, scale float64) e
 	return err
 }
 
-func (d *AndroidDevice) OpenNotifications(ctx context.Context) error {
-	_, err := d.adb(ctx, "shell", "cmd", "statusbar", "expand-notifications")
-	return err
-}
 
 func (d *AndroidDevice) ClearText(ctx context.Context) error {
 	// Ctrl+A (select all) then Delete

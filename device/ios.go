@@ -154,10 +154,6 @@ func (d *IOSDevice) PinchOut(ctx context.Context, x, y int, scale float64) error
 	return err
 }
 
-func (d *IOSDevice) OpenNotifications(ctx context.Context) error {
-	// Swipe down from the very top of the screen
-	return d.Swipe(ctx, 200, 5, 200, 400)
-}
 
 func (d *IOSDevice) ClearText(ctx context.Context) error {
 	// Select all (Cmd+A equivalent via WDA) then delete

@@ -40,7 +40,7 @@ type Gesturer interface {
 	Home(ctx context.Context) error
 	PinchIn(ctx context.Context, x, y int, scale float64) error
 	PinchOut(ctx context.Context, x, y int, scale float64) error
-	OpenNotifications(ctx context.Context) error
+
 	ClearText(ctx context.Context) error
 	RotateDevice(ctx context.Context) error
 }

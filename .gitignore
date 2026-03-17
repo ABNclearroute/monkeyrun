@@ -1,12 +1,8 @@
 # built binary
 /monkeyrun
 
-# generated report output (not the source package report/report.go)
-!report/report.go
-report/index.html
-report/events.json
-report/screenshots/
-report/logs/
+# generated report output
+report/
 report-*/
 *.log
 .DS_Store

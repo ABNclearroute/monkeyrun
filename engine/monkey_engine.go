@@ -11,19 +11,18 @@ import (
 
 // Weights for action selection (must sum to 100).
 const (
-	weightTap               = 35
-	weightDoubleTap         = 8
-	weightLongPress         = 8
-	weightSwipe             = 15
-	weightScroll            = 8
-	weightType              = 4
-	weightBack              = 4
-	weightPinchIn           = 4
-	weightPinchOut          = 4
-	weightHome              = 3
-	weightOpenNotifications = 3
-	weightClearText         = 2
-	weightRotateDevice      = 2
+	weightTap          = 36
+	weightDoubleTap    = 8
+	weightLongPress    = 8
+	weightSwipe        = 16
+	weightScroll       = 8
+	weightType         = 5
+	weightBack         = 4
+	weightPinchIn      = 4
+	weightPinchOut     = 4
+	weightHome         = 3
+	weightClearText    = 2
+	weightRotateDevice = 2
 )
 
 // RunConfig holds options for a monkey run.
@@ -249,7 +248,6 @@ func (m *Monkey) weightedAction(r *rand.Rand, el *device.UIElement) ActionType {
 		{PinchIn, weightPinchIn},
 		{PinchOut, weightPinchOut},
 		{Home, weightHome},
-		{OpenNotifications, weightOpenNotifications},
 		{ClearText, weightClearText},
 		{RotateDevice, weightRotateDevice},
 	}
