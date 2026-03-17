@@ -24,6 +24,11 @@ type RunConfig struct {
 	Events      int
 	ReportDir   string
 	Verbose     bool
+	// DelayMinMs/DelayMaxMs control per-event human-like delay. If both are 0, defaults to 200–800ms.
+	DelayMinMs int
+	DelayMaxMs int
+	// HierarchyEvery controls how often UI hierarchy is refreshed. If 0, defaults to 1 (every event).
+	HierarchyEvery int
 	OnEvent     func(EventLog)
 	OnCrash     func(CrashInfo)
 	ReplayFile  string // optional: replay from JSON
@@ -66,13 +71,35 @@ func NewMonkey(dev device.Device, config RunConfig) *Monkey {
 
 // Run executes the monkey test for config.Events iterations.
 func (m *Monkey) Run(ctx context.Context) (events int, crashes int, err error) {
+	hEvery := m.config.HierarchyEvery
+	if hEvery <= 0 {
+		hEvery = 1
+	}
+	var cached []device.UIElement
+	var cachedAt int
+
 	for i := 1; i <= m.config.Events; i++ {
 		select {
 		case <-ctx.Done():
 			return i - 1, crashes, ctx.Err()
 		default:
 		}
-		_, crashed, runErr := m.runOne(ctx, i)
+
+		// Refresh hierarchy only every N events, reuse in-between for speed.
+		if cached == nil || (i-cachedAt) >= hEvery {
+			elements, hErr := m.dev.GetUIHierarchy(ctx)
+			if hErr != nil {
+				// Log but continue
+				if m.config.OnEvent != nil {
+					m.config.OnEvent(EventLog{Event: i, Platform: m.dev.Platform(), Action: "hierarchy", Status: hErr.Error(), Time: time.Now().Format(time.RFC3339)})
+				}
+			} else {
+				cached = elements
+				cachedAt = i
+			}
+		}
+
+		_, crashed, runErr := m.runOneWithElements(ctx, i, cached)
 		events = i
 		if crashed {
 			crashes++
@@ -89,11 +116,7 @@ func (m *Monkey) Run(ctx context.Context) (events int, crashes int, err error) {
 	return events, crashes, nil
 }
 
-func (m *Monkey) runOne(ctx context.Context, eventNum int) (EventLog, bool, error) {
-	elements, err := m.dev.GetUIHierarchy(ctx)
-	if err != nil {
-		return EventLog{Event: eventNum, Status: "hierarchy_error"}, false, err
-	}
+func (m *Monkey) runOneWithElements(ctx context.Context, eventNum int, elements []device.UIElement) (EventLog, bool, error) {
 	action := m.selectAction(elements, eventNum)
 	elDesc := ""
 	if action.Element != nil {
@@ -102,7 +125,7 @@ func (m *Monkey) runOne(ctx context.Context, eventNum int) (EventLog, bool, erro
 			elDesc = action.Element.ResourceID
 		}
 	}
-	err = ExecuteAction(ctx, m.dev, action)
+	err := ExecuteAction(ctx, m.dev, action, m.config.DelayMinMs, m.config.DelayMaxMs)
 	status := "ok"
 	if err != nil {
 		status = err.Error()

@@ -9,9 +9,20 @@ import (
 )
 
 // ExecuteAction runs a single action on the device with human-like behavior.
-func ExecuteAction(ctx context.Context, dev device.Device, action Action) error {
-	// Human-like delay 200-800ms
-	delay := 200 + rand.Intn(600)
+func ExecuteAction(ctx context.Context, dev device.Device, action Action, delayMinMs, delayMaxMs int) error {
+	// Human-like delay (configurable). Default: 200–800ms.
+	min := delayMinMs
+	max := delayMaxMs
+	if min == 0 && max == 0 {
+		min, max = 200, 800
+	}
+	if max < min {
+		max = min
+	}
+	delay := min
+	if max > min {
+		delay = min + rand.Intn(max-min+1)
+	}
 	select {
 	case <-ctx.Done():
 		return ctx.Err()

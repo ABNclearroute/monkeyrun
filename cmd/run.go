@@ -26,6 +26,10 @@ var (
 	runReportDir string
 	runDevice    string
 	runVerbose   bool
+	runDelayMin  int
+	runDelayMax  int
+	runHierarchyEvery int
+	runShowTouches bool
 )
 
 var runCmd = &cobra.Command{
@@ -43,6 +47,10 @@ func init() {
 	runCmd.Flags().StringVar(&runReportDir, "report", "report", "Report output directory")
 	runCmd.Flags().StringVar(&runDevice, "device", "", "Device ID override (Android: serial; iOS: UDID)")
 	runCmd.Flags().BoolVar(&runVerbose, "verbose", false, "Verbose output")
+	runCmd.Flags().IntVar(&runDelayMin, "delay-min", 200, "Min delay between actions in ms (set lower for faster runs)")
+	runCmd.Flags().IntVar(&runDelayMax, "delay-max", 800, "Max delay between actions in ms (set lower for faster runs)")
+	runCmd.Flags().IntVar(&runHierarchyEvery, "hierarchy-every", 1, "Refresh UI hierarchy every N events (increase for faster runs)")
+	runCmd.Flags().BoolVar(&runShowTouches, "show-touches", false, "Android only: enable visual touch indicators while running")
 	runCmd.MarkFlagRequired("platform")
 }
 
@@ -72,7 +80,12 @@ func runRun(cmd *cobra.Command, args []string) error {
 			}
 			deviceID = ids[0]
 		}
-		dev = device.NewAndroidDevice(deviceID)
+		ad := device.NewAndroidDevice(deviceID)
+		dev = ad
+		if runShowTouches {
+			_ = device.SetAndroidTouchVisuals(ctx, ad, true)
+			defer func() { _ = device.SetAndroidTouchVisuals(context.Background(), ad, false) }()
+		}
 	} else {
 		udid := runDevice
 		if udid == "" {
@@ -83,6 +96,9 @@ func runRun(cmd *cobra.Command, args []string) error {
 			}
 		}
 		dev = device.NewIOSDevice(udid, "")
+		if runShowTouches && runVerbose {
+			fmt.Fprintln(os.Stderr, "--show-touches is currently Android-only (iOS simulator touch visuals are not toggled by monkeyrun).")
+		}
 	}
 
 	reportDir, err := filepath.Abs(runReportDir)
@@ -117,6 +133,9 @@ func runRun(cmd *cobra.Command, args []string) error {
 		Events:    runEvents,
 		ReportDir: reportDir,
 		Verbose:   runVerbose,
+		DelayMinMs: runDelayMin,
+		DelayMaxMs: runDelayMax,
+		HierarchyEvery: runHierarchyEvery,
 		OnEvent: func(ev engine.EventLog) {
 			lastEventMu.Lock()
 			lastEventNum = ev.Event

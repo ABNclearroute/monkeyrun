@@ -128,3 +128,16 @@ func (d *AndroidDevice) StartLogStream(ctx context.Context, logCh chan<- string)
 	go cmd.Wait()
 	return nil
 }
+
+// SetAndroidTouchVisuals toggles Android's built-in touch visualizations (best-effort).
+// Requires developer options enabled on the device/emulator.
+func SetAndroidTouchVisuals(ctx context.Context, d *AndroidDevice, enabled bool) error {
+	v := "0"
+	if enabled {
+		v = "1"
+	}
+	// show_touches (visual touch dots) and pointer_location (crosshair + trail).
+	_, _ = d.adb(ctx, "shell", "settings", "put", "system", "show_touches", v)
+	_, _ = d.adb(ctx, "shell", "settings", "put", "system", "pointer_location", v)
+	return nil
+}

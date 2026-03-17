@@ -16,7 +16,7 @@ func Replay(ctx context.Context, dev device.Device, events []EventLog, onEvent f
 		}
 		elements, _ := dev.GetUIHierarchy(ctx)
 		action := eventToAction(ev, elements)
-		_ = ExecuteAction(ctx, dev, action)
+		_ = ExecuteAction(ctx, dev, action, 0, 0)
 		if onEvent != nil {
 			onEvent(ev)
 		}

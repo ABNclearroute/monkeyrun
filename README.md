@@ -17,9 +17,46 @@ Production-ready, cross-platform CLI for mobile chaos (monkey) testing on **Andr
 
 ## Install
 
+### Option 1: Download prebuilt binary (recommended)
+
+Go to the [Releases](https://github.com/ABNclearroute/monkeyrun/releases) page and download the binary for your OS:
+
+| OS | Architecture | File |
+|----|-------------|------|
+| macOS | Apple Silicon (M1/M2/M3) | `monkeyrun_*_darwin_arm64.tar.gz` |
+| macOS | Intel | `monkeyrun_*_darwin_amd64.tar.gz` |
+| Linux | x86_64 | `monkeyrun_*_linux_amd64.tar.gz` |
+| Linux | ARM64 | `monkeyrun_*_linux_arm64.tar.gz` |
+| Windows | x86_64 | `monkeyrun_*_windows_amd64.zip` |
+
 ```bash
-go build -o monkeyrun .
-# or CGO_ENABLED=0 for static binary
+# Example: macOS Apple Silicon
+curl -LO https://github.com/ABNclearroute/monkeyrun/releases/latest/download/monkeyrun_darwin_arm64.tar.gz
+tar xzf monkeyrun_darwin_arm64.tar.gz
+chmod +x monkeyrun
+sudo mv monkeyrun /usr/local/bin/
+```
+
+### Option 2: Install with Go
+
+```bash
+go install github.com/ABNclearroute/monkeyrun@latest
+```
+
+### Option 3: Build from source
+
+```bash
+git clone https://github.com/ABNclearroute/monkeyrun.git
+cd monkeyrun
+make build
+# binary is ./monkeyrun
+```
+
+### Cross-compile all platforms locally
+
+```bash
+make build-all
+# outputs to dist/
 ```
 
 ## How to test
@@ -109,6 +146,10 @@ monkeyrun replay --report report --platform android --events 100
 - `--report`: Report output directory (default: `report`)
 - `--device`: Override device/simulator ID
 - `--verbose`: Verbose logging
+- `--delay-min`: Min delay between actions in ms (default: 200)
+- `--delay-max`: Max delay between actions in ms (default: 800)
+- `--hierarchy-every`: Refresh UI hierarchy every N events (default: 1). Increase for faster runs.
+- `--show-touches`: Android only: enable visual touch indicators while running
 
 ## Report layout
 
@@ -125,6 +166,17 @@ report/
 - **CLI** (Cobra) → **Engine** → **Device** interface → **Android** (ADB) / **iOS** (WebDriverAgent + simctl)
 - UI hierarchy: Android via `uiautomator dump`, iOS via WDA `/source`
 - Actions: weighted random (tap 40%, swipe 20%, etc.) with element-aware choices
+
+## Releasing a new version
+
+Tag and push — GitHub Actions will build and publish binaries automatically:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Binaries for macOS, Linux, and Windows (amd64 + arm64) will appear on the [Releases](https://github.com/ABNclearroute/monkeyrun/releases) page within a few minutes.
 
 ## License
 
