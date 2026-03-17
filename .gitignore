@@ -1,0 +1,10 @@
+monkeyrun
+report/
+report-*/
+*.log
+.DS_Store
+dist/
+bin/
+coverage/
+*.out
+.env
