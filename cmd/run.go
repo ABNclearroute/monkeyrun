@@ -102,6 +102,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 	var eventsMu sync.Mutex
 	var events []engine.EventEntry
 	var crashes []engine.CrashEntry
+	crashSeen := map[int]bool{}
 	var lastEventMu sync.Mutex
 	var lastEventNum int
 
@@ -171,29 +172,44 @@ func runRun(cmd *cobra.Command, args []string) error {
 					if severity == crash.SeverityNone || msg == "" {
 						continue
 					}
-					lastEventMu.Lock()
-					evNum := lastEventNum
-					lastEventMu.Unlock()
+				lastEventMu.Lock()
+				evNum := lastEventNum
+				lastEventMu.Unlock()
 
-					screenshotFile := ""
-					if ss := monkey.Screenshotter(); ss != nil {
-						screenshotFile = ss.EnqueueCrash(evNum)
-					} else {
-						screenshotFile = fmt.Sprintf("monkeyrun_crash_evt%04d.png", evNum)
-						spath := filepath.Join(screenshotsDir, screenshotFile)
-						if err := dev.Screenshot(ctx, spath); err != nil && runVerbose {
-							fmt.Fprintln(os.Stderr, "Screenshot failed:", err)
-						}
+				eventsMu.Lock()
+				alreadySeen := crashSeen[evNum]
+				if !alreadySeen {
+					crashSeen[evNum] = true
+				}
+				eventsMu.Unlock()
+				if alreadySeen {
+					if severity == crash.SeverityFatal && runStopOnCrash {
+						fmt.Fprintf(os.Stderr, "\n*** FATAL CRASH at event %d — stopping ***\n  %s\n\n", evNum, msg)
+						cancel()
+						return
 					}
+					continue
+				}
 
-					logSnippet := strings.Join(det.LastLines(), "\n")
-					if len(logSnippet) > 4096 {
-						logSnippet = logSnippet[len(logSnippet)-4096:]
+				screenshotFile := ""
+				if ss := monkey.Screenshotter(); ss != nil {
+					screenshotFile = ss.EnqueueCrash(evNum)
+				} else {
+					screenshotFile = fmt.Sprintf("monkeyrun_crash_evt%04d.png", evNum)
+					spath := filepath.Join(screenshotsDir, screenshotFile)
+					if err := dev.Screenshot(ctx, spath); err != nil && runVerbose {
+						fmt.Fprintln(os.Stderr, "Screenshot failed:", err)
 					}
-					cfg.OnCrash(engine.CrashInfo{
-						Event: evNum, Message: msg,
-						Screenshot: screenshotFile, LogSnippet: logSnippet,
-					})
+				}
+
+				logSnippet := strings.Join(det.LastLines(), "\n")
+				if len(logSnippet) > 4096 {
+					logSnippet = logSnippet[len(logSnippet)-4096:]
+				}
+				cfg.OnCrash(engine.CrashInfo{
+					Event: evNum, Message: msg,
+					Screenshot: screenshotFile, LogSnippet: logSnippet,
+				})
 					if severity == crash.SeverityFatal && runStopOnCrash {
 						fmt.Fprintf(os.Stderr, "\n*** FATAL CRASH at event %d — stopping ***\n  %s\n\n", evNum, msg)
 						cancel()

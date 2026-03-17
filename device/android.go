@@ -189,11 +189,18 @@ func (d *AndroidDevice) Screenshot(ctx context.Context, path string) error {
 // --- Logger ---
 
 func (d *AndroidDevice) StartLogStream(ctx context.Context, logCh chan<- string) error {
-	args := make([]string, 0, 6)
+	clearArgs := []string{}
+	if d.serial != "" {
+		clearArgs = append(clearArgs, "-s", d.serial)
+	}
+	clearArgs = append(clearArgs, "logcat", "-c")
+	_ = exec.CommandContext(ctx, "adb", clearArgs...).Run()
+
+	args := make([]string, 0, 8)
 	if d.serial != "" {
 		args = append(args, "-s", d.serial)
 	}
-	args = append(args, "logcat", "-v", "time")
+	args = append(args, "logcat", "-v", "time", "-T", "1")
 	cmd := exec.CommandContext(ctx, "adb", args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
