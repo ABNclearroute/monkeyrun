@@ -20,17 +20,17 @@ import (
 )
 
 var (
-	runPlatform  string
-	runApp       string
-	runEvents    int
-	runReportDir string
-	runDevice    string
-	runVerbose   bool
-	runDelayMin  int
-	runDelayMax  int
+	runPlatform       string
+	runApp            string
+	runEvents         int
+	runReportDir      string
+	runDevice         string
+	runVerbose        bool
+	runDelayMin       int
+	runDelayMax       int
 	runHierarchyEvery int
-	runShowTouches bool
-	runStopOnCrash bool
+	runShowTouches    bool
+	runStopOnCrash    bool
 )
 
 var runCmd = &cobra.Command{
@@ -43,64 +43,44 @@ var runCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(runCmd)
 	runCmd.Flags().StringVar(&runPlatform, "platform", "", "Platform: android or ios (required)")
-	runCmd.Flags().StringVar(&runApp, "app", "", "App package (Android) or bundle ID (iOS) - for focus; device must have app running")
+	runCmd.Flags().StringVar(&runApp, "app", "", "App package (Android) or bundle ID (iOS)")
 	runCmd.Flags().IntVar(&runEvents, "events", 1000, "Number of events to run")
 	runCmd.Flags().StringVar(&runReportDir, "report", "report", "Report output directory")
 	runCmd.Flags().StringVar(&runDevice, "device", "", "Device ID override (Android: serial; iOS: UDID)")
 	runCmd.Flags().BoolVar(&runVerbose, "verbose", false, "Verbose output")
-	runCmd.Flags().IntVar(&runDelayMin, "delay-min", 200, "Min delay between actions in ms (set lower for faster runs)")
-	runCmd.Flags().IntVar(&runDelayMax, "delay-max", 800, "Max delay between actions in ms (set lower for faster runs)")
-	runCmd.Flags().IntVar(&runHierarchyEvery, "hierarchy-every", 1, "Refresh UI hierarchy every N events (increase for faster runs)")
-	runCmd.Flags().BoolVar(&runShowTouches, "show-touches", false, "Android only: enable visual touch indicators while running")
-	runCmd.Flags().BoolVar(&runStopOnCrash, "stop-on-crash", true, "Stop execution immediately when a fatal crash is detected")
+	runCmd.Flags().IntVar(&runDelayMin, "delay-min", 200, "Min delay between actions in ms")
+	runCmd.Flags().IntVar(&runDelayMax, "delay-max", 800, "Max delay between actions in ms")
+	runCmd.Flags().IntVar(&runHierarchyEvery, "hierarchy-every", 1, "Refresh UI hierarchy every N events")
+	runCmd.Flags().BoolVar(&runShowTouches, "show-touches", false, "Enable visual touch indicators while running")
+	runCmd.Flags().BoolVar(&runStopOnCrash, "stop-on-crash", true, "Stop execution on fatal crash")
 	runCmd.MarkFlagRequired("platform")
 }
 
 func runRun(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	// Graceful shutdown on SIGINT/SIGTERM
+
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigCh
-		cancel()
-	}()
+	go func() { <-sigCh; cancel() }()
 
 	platform := strings.ToLower(runPlatform)
-	if platform != "android" && platform != "ios" {
-		return fmt.Errorf("platform must be android or ios")
+	dev, err := device.New(ctx, platform, device.Options{DeviceID: runDevice})
+	if err != nil {
+		return err
 	}
 
-	var dev device.Device
-	if platform == "android" {
-		deviceID := runDevice
-		if deviceID == "" {
-			ids, err := device.DetectAndroidDevices(ctx)
-			if err != nil || len(ids) == 0 {
-				return fmt.Errorf("no Android device: run 'adb devices' and connect one: %w", err)
-			}
-			deviceID = ids[0]
+	info := dev.Info()
+	if runVerbose {
+		fmt.Printf("Device: %s (%s) [%s]\n", info.Name, info.ID, info.Platform)
+		if info.ScreenWidth > 0 {
+			fmt.Printf("Screen: %dx%d\n", info.ScreenWidth, info.ScreenHeight)
 		}
-		ad := device.NewAndroidDevice(deviceID)
-		dev = ad
-		if runShowTouches {
-			_ = device.SetAndroidTouchVisuals(ctx, ad, true)
-			defer func() { _ = device.SetAndroidTouchVisuals(context.Background(), ad, false) }()
-		}
-	} else {
-		udid := runDevice
-		if udid == "" {
-			var err error
-			udid, err = device.DetectIOSBootedSimulator(ctx)
-			if err != nil || udid == "" {
-				return fmt.Errorf("no booted iOS simulator: run 'xcrun simctl list devices' and boot one: %w", err)
-			}
-		}
-		dev = device.NewIOSDevice(udid, "")
-		if runShowTouches && runVerbose {
-			fmt.Fprintln(os.Stderr, "--show-touches is currently Android-only (iOS simulator touch visuals are not toggled by monkeyrun).")
-		}
+	}
+
+	if runShowTouches {
+		_ = dev.SetTouchVisuals(ctx, true)
+		defer func() { _ = dev.SetTouchVisuals(context.Background(), false) }()
 	}
 
 	reportDir, err := filepath.Abs(runReportDir)
@@ -122,13 +102,10 @@ func runRun(cmd *cobra.Command, args []string) error {
 	var lastEventMu sync.Mutex
 	var lastEventNum int
 
-	// Start log stream for crash detection
 	logCh := make(chan string, 100)
-	startLogStream := dev.StartLogStream(ctx, logCh)
-	if startLogStream != nil {
-		if runVerbose {
-			fmt.Fprintln(os.Stderr, "Log stream failed:", startLogStream)
-		}
+	logStreamErr := dev.StartLogStream(ctx, logCh)
+	if logStreamErr != nil && runVerbose {
+		fmt.Fprintln(os.Stderr, "Log stream failed:", logStreamErr)
 	}
 
 	cfg := engine.RunConfig{
@@ -160,7 +137,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		},
 	}
 
-	if startLogStream == nil {
+	if logStreamErr == nil {
 		go func() {
 			for {
 				select {
@@ -177,6 +154,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 					lastEventMu.Lock()
 					evNum := lastEventNum
 					lastEventMu.Unlock()
+
 					screenshotPath := filepath.Join(screenshotsDir, fmt.Sprintf("crash_%d_%d.png", evNum, time.Now().Unix()))
 					if err := dev.Screenshot(ctx, screenshotPath); err != nil && runVerbose {
 						fmt.Fprintln(os.Stderr, "Screenshot failed:", err)
@@ -186,13 +164,11 @@ func runRun(cmd *cobra.Command, args []string) error {
 						logSnippet = logSnippet[len(logSnippet)-4096:]
 					}
 					cfg.OnCrash(engine.CrashInfo{
-						Event:      evNum,
-						Message:    msg,
-						Screenshot: screenshotPath,
-						LogSnippet: logSnippet,
+						Event: evNum, Message: msg,
+						Screenshot: screenshotPath, LogSnippet: logSnippet,
 					})
 					if severity == crash.SeverityFatal && runStopOnCrash {
-						fmt.Fprintf(os.Stderr, "\n*** FATAL CRASH detected at event %d — stopping execution ***\n  %s\n\n", evNum, msg)
+						fmt.Fprintf(os.Stderr, "\n*** FATAL CRASH at event %d — stopping ***\n  %s\n\n", evNum, msg)
 						cancel()
 						return
 					}
@@ -206,33 +182,24 @@ func runRun(cmd *cobra.Command, args []string) error {
 
 	monkey := engine.NewMonkey(dev, cfg)
 	start := time.Now()
-	n, crashCount, err := monkey.Run(ctx)
+	n, crashCount, runErr := monkey.Run(ctx)
 	elapsed := time.Since(start)
 
-	// Build report
 	rep := report.Report{
-		Dir:          reportDir,
-		Events:       events,
-		Crashes:      crashes,
-		StartTime:    start,
-		EndTime:      time.Now(),
-		TotalEvents: n,
-		TotalCrashes: crashCount,
-		LogLines:     det.LastLines(),
+		Dir: reportDir, Events: events, Crashes: crashes,
+		StartTime: start, EndTime: time.Now(),
+		TotalEvents: n, TotalCrashes: crashCount,
+		LogLines: det.LastLines(),
 	}
 	for i := range crashes {
 		if crashes[i].Screenshot != "" {
 			rep.Screenshots = append(rep.Screenshots, filepath.Base(crashes[i].Screenshot))
 		}
 	}
-
 	_ = rep.WriteEventsJSON()
 	_ = rep.WriteLogs()
 	_ = rep.WriteHTML()
 
 	fmt.Printf("Done: %d events in %v, %d crashes. Report: %s\n", n, elapsed, crashCount, reportDir)
-	if err != nil {
-		return err
-	}
-	return nil
+	return runErr
 }

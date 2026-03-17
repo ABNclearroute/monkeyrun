@@ -14,28 +14,60 @@ import (
 
 // IOSDevice implements Device using WebDriverAgent (WDA) and simctl.
 type IOSDevice struct {
-	UDID       string // UDID of booted simulator
-	WDABaseURL string // e.g. http://localhost:8100
+	udid       string
+	wdaBaseURL string
 	client     *http.Client
+	info       DeviceInfo
 }
 
-// NewIOSDevice creates an iOS device adapter. deviceID empty = first booted simulator.
-func NewIOSDevice(deviceID, wdaBaseURL string) *IOSDevice {
+// NewIOSDevice creates an iOS device adapter. wdaBaseURL defaults to http://localhost:8100.
+func NewIOSDevice(udid, wdaBaseURL string) *IOSDevice {
 	if wdaBaseURL == "" {
 		wdaBaseURL = "http://localhost:8100"
 	}
-	return &IOSDevice{
-		UDID:       deviceID,
-		WDABaseURL: strings.TrimSuffix(wdaBaseURL, "/"),
+	d := &IOSDevice{
+		udid:       udid,
+		wdaBaseURL: strings.TrimSuffix(wdaBaseURL, "/"),
 		client:     &http.Client{Timeout: 30 * time.Second},
 	}
+	d.info = DeviceInfo{
+		Platform: "ios",
+		ID:       udid,
+		Name:     d.probeName(),
+	}
+	return d
 }
 
-func (d *IOSDevice) Platform() string { return "ios" }
-func (d *IOSDevice) DeviceID() string { return d.UDID }
+func (d *IOSDevice) Info() DeviceInfo { return d.info }
+
+func (d *IOSDevice) probeName() string {
+	out, err := exec.Command("xcrun", "simctl", "list", "devices", "-j").Output()
+	if err != nil {
+		return d.udid
+	}
+	var root map[string]interface{}
+	if err := json.Unmarshal(out, &root); err != nil {
+		return d.udid
+	}
+	devices, _ := root["devices"].(map[string]interface{})
+	for _, runtimes := range devices {
+		list, _ := runtimes.([]interface{})
+		for _, dev := range list {
+			m, _ := dev.(map[string]interface{})
+			if m["udid"] == d.udid {
+				if name, ok := m["name"].(string); ok {
+					return name
+				}
+			}
+		}
+	}
+	return d.udid
+}
+
+// --- transport ---
 
 func (d *IOSDevice) wda(ctx context.Context, method, path string, body []byte) ([]byte, error) {
-	url := d.WDABaseURL + path
+	url := d.wdaBaseURL + path
 	var req *http.Request
 	var err error
 	if len(body) > 0 {
@@ -55,36 +87,25 @@ func (d *IOSDevice) wda(ctx context.Context, method, path string, body []byte) (
 	return io.ReadAll(resp.Body)
 }
 
-// GetUIHierarchy fetches source from WDA and parses to UI elements.
-func (d *IOSDevice) GetUIHierarchy(ctx context.Context) ([]UIElement, error) {
-	// WDA: GET /source or /session/xxx/source
-	body, err := d.wda(ctx, "GET", "/source", nil)
-	if err != nil {
-		return nil, fmt.Errorf("wda source: %w", err)
-	}
-	return ParseIOSSource(body)
-}
+// --- Gesturer ---
 
-// Tap uses WDA tap at coordinates.
 func (d *IOSDevice) Tap(ctx context.Context, x, y int) error {
 	payload := fmt.Sprintf(`{"x":%d,"y":%d}`, x, y)
 	_, err := d.wda(ctx, "POST", "/wda/tap/0", []byte(payload))
 	return err
 }
 
-// DoubleTap uses WDA doubleTap.
 func (d *IOSDevice) DoubleTap(ctx context.Context, x, y int) error {
 	payload := fmt.Sprintf(`{"x":%d,"y":%d}`, x, y)
 	_, err := d.wda(ctx, "POST", "/wda/doubleTap/0", []byte(payload))
 	return err
 }
 
-// LongPress uses WDA touchAndHold with duration (seconds).
-func (d *IOSDevice) LongPress(ctx context.Context, x, y int, duration int) error {
-	if duration <= 0 {
-		duration = 1000
+func (d *IOSDevice) LongPress(ctx context.Context, x, y int, durationMs int) error {
+	if durationMs <= 0 {
+		durationMs = 1000
 	}
-	sec := duration / 1000
+	sec := durationMs / 1000
 	if sec < 1 {
 		sec = 1
 	}
@@ -93,45 +114,49 @@ func (d *IOSDevice) LongPress(ctx context.Context, x, y int, duration int) error
 	return err
 }
 
-// Swipe uses WDA dragfromtoforduration.
 func (d *IOSDevice) Swipe(ctx context.Context, x1, y1, x2, y2 int) error {
-	duration := 0.3
-	payload := fmt.Sprintf(`{"fromX":%d,"fromY":%d,"toX":%d,"toY":%d,"duration":%f}`, x1, y1, x2, y2, duration)
+	payload := fmt.Sprintf(`{"fromX":%d,"fromY":%d,"toX":%d,"toY":%d,"duration":0.3}`, x1, y1, x2, y2)
 	_, err := d.wda(ctx, "POST", "/wda/dragfromtoforduration", []byte(payload))
 	return err
 }
 
-// Type sends keys via WDA.
 func (d *IOSDevice) Type(ctx context.Context, text string) error {
 	escaped, _ := json.Marshal(text)
 	_, err := d.wda(ctx, "POST", "/wda/keys", escaped)
 	return err
 }
 
-// Back - iOS has no back button; send home or rely on app UI. Send keycode home.
 func (d *IOSDevice) Back(ctx context.Context) error {
-	// WDA may support keyevent or we use simctl. For simulator: keyevent 4 not applicable. Use home.
 	_, err := d.wda(ctx, "POST", "/wda/homescreen", nil)
 	return err
 }
 
-// Screenshot uses simctl io booted screenshot.
-func (d *IOSDevice) Screenshot(ctx context.Context, path string) error {
-	args := []string{"simctl", "io", "booted", "screenshot", path}
-	if d.UDID != "" {
-		args = []string{"simctl", "io", d.UDID, "screenshot", path}
+// --- Inspector ---
+
+func (d *IOSDevice) GetUIHierarchy(ctx context.Context) ([]UIElement, error) {
+	body, err := d.wda(ctx, "GET", "/source", nil)
+	if err != nil {
+		return nil, fmt.Errorf("wda source: %w", err)
 	}
-	cmd := exec.CommandContext(ctx, "xcrun", args...)
-	return cmd.Run()
+	return parseIOSSource(body)
 }
 
-// StartLogStream uses simctl spawn booted log stream.
-func (d *IOSDevice) StartLogStream(ctx context.Context, logCh chan<- string) error {
-	args := []string{"simctl", "spawn", "booted", "log", "stream"}
-	if d.UDID != "" {
-		args = []string{"simctl", "spawn", d.UDID, "log", "stream"}
+func (d *IOSDevice) Screenshot(ctx context.Context, path string) error {
+	target := "booted"
+	if d.udid != "" {
+		target = d.udid
 	}
-	cmd := exec.CommandContext(ctx, "xcrun", args...)
+	return exec.CommandContext(ctx, "xcrun", "simctl", "io", target, "screenshot", path).Run()
+}
+
+// --- Logger ---
+
+func (d *IOSDevice) StartLogStream(ctx context.Context, logCh chan<- string) error {
+	target := "booted"
+	if d.udid != "" {
+		target = d.udid
+	}
+	cmd := exec.CommandContext(ctx, "xcrun", "simctl", "spawn", target, "log", "stream")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
@@ -141,5 +166,11 @@ func (d *IOSDevice) StartLogStream(ctx context.Context, logCh chan<- string) err
 	}
 	go streamLines(ctx, stdout, logCh)
 	go cmd.Wait()
+	return nil
+}
+
+// --- SetTouchVisuals (no-op on iOS) ---
+
+func (d *IOSDevice) SetTouchVisuals(_ context.Context, _ bool) error {
 	return nil
 }

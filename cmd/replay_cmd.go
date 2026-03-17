@@ -18,9 +18,9 @@ import (
 )
 
 var (
-	replayPath   string
+	replayPath     string
 	replayPlatform string
-	replayLimit  int
+	replayLimit    int
 )
 
 var replayCmd = &cobra.Command{
@@ -45,19 +45,9 @@ func runReplay(cmd *cobra.Command, args []string) error {
 	go func() { <-sigCh; cancel() }()
 
 	platform := strings.ToLower(replayPlatform)
-	var dev device.Device
-	if platform == "android" {
-		ids, err := device.DetectAndroidDevices(ctx)
-		if err != nil || len(ids) == 0 {
-			return fmt.Errorf("no Android device: %w", err)
-		}
-		dev = device.NewAndroidDevice(ids[0])
-	} else {
-		udid, err := device.DetectIOSBootedSimulator(ctx)
-		if err != nil || udid == "" {
-			return fmt.Errorf("no booted iOS simulator: %w", err)
-		}
-		dev = device.NewIOSDevice(udid, "")
+	dev, err := device.New(ctx, platform, device.Options{})
+	if err != nil {
+		return err
 	}
 
 	path := filepath.Join(replayPath, "events.json")
@@ -79,7 +69,9 @@ func runReplay(cmd *cobra.Command, args []string) error {
 	if replayLimit > 0 && len(events) > replayLimit {
 		events = events[:replayLimit]
 	}
-	fmt.Printf("Replaying %d events on %s\n", len(events), dev.DeviceID())
+
+	info := dev.Info()
+	fmt.Printf("Replaying %d events on %s (%s)\n", len(events), info.Name, info.ID)
 	return engine.Replay(ctx, dev, events, func(ev engine.EventLog) {
 		if ev.Event%100 == 0 {
 			fmt.Printf("  event %d\n", ev.Event)

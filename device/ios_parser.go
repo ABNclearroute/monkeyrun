@@ -8,8 +8,7 @@ import (
 	"strings"
 )
 
-// ParseIOSSource parses WDA /source response (XML or JSON) into UI elements.
-func ParseIOSSource(body []byte) ([]UIElement, error) {
+func parseIOSSource(body []byte) ([]UIElement, error) {
 	s := strings.TrimSpace(string(body))
 	if s == "" {
 		return nil, nil
@@ -23,7 +22,6 @@ func ParseIOSSource(body []byte) ([]UIElement, error) {
 	return nil, fmt.Errorf("unknown iOS source format")
 }
 
-// iosNode represents a node in WDA XML (any XCUIElementType).
 type iosNode struct {
 	XMLName  xml.Name  `xml:",any"`
 	Type     string    `xml:"type,attr"`
@@ -37,8 +35,7 @@ type iosNode struct {
 
 func parseIOSXML(s string) ([]UIElement, error) {
 	var root iosNode
-	dec := xml.NewDecoder(strings.NewReader(s))
-	if err := dec.Decode(&root); err != nil {
+	if err := xml.NewDecoder(strings.NewReader(s)).Decode(&root); err != nil {
 		return nil, fmt.Errorf("ios xml decode: %w", err)
 	}
 	return collectIOSElements([]iosNode{root}), nil
@@ -59,14 +56,14 @@ func collectIOSElements(nodes []iosNode) []UIElement {
 		if text == "" {
 			text = n.Value
 		}
-		clickable := strings.EqualFold(n.Enabled, "true") && (n.Type == "XCUIElementTypeButton" || n.Type == "XCUIElementTypeCell" || n.Type == "XCUIElementTypeStaticText" || text != "")
+		clickable := strings.EqualFold(n.Enabled, "true") &&
+			(n.Type == "XCUIElementTypeButton" || n.Type == "XCUIElementTypeCell" ||
+				n.Type == "XCUIElementTypeStaticText" || text != "")
 		input := strings.Contains(n.Type, "Field") || strings.Contains(n.Type, "Text")
 		out = append(out, UIElement{
-			Text:       text,
-			ResourceID: n.Name,
-			X:          x, Y: y, Width: w, Height: h,
-			Clickable:  clickable,
-			InputField: input,
+			Text: text, ResourceID: n.Name,
+			X: x, Y: y, Width: w, Height: h,
+			Clickable: clickable, InputField: input,
 		})
 		out = append(out, collectIOSElements(n.Children)...)
 	}

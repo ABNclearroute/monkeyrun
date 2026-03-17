@@ -7,7 +7,6 @@ import (
 	"strings"
 )
 
-// androidNode from uiautomator dump.
 type androidNode struct {
 	XMLName xml.Name      `xml:"node"`
 	Text    string        `xml:"text,attr"`
@@ -18,8 +17,7 @@ type androidNode struct {
 	Nodes   []androidNode `xml:"node"`
 }
 
-// ParseAndroidUIXML parses uiautomator dump XML and returns actionable elements.
-func ParseAndroidUIXML(xmlContent string) ([]UIElement, error) {
+func parseAndroidUIXML(xmlContent string) ([]UIElement, error) {
 	xmlContent = strings.TrimSpace(xmlContent)
 	if idx := strings.Index(xmlContent, "<"); idx > 0 {
 		xmlContent = xmlContent[idx:]
@@ -33,16 +31,16 @@ func ParseAndroidUIXML(xmlContent string) ([]UIElement, error) {
 		return nil, fmt.Errorf("decode UI XML: %w", err)
 	}
 	var out []UIElement
-	collectClickableAndroid(&root.Nodes, &out)
+	collectAndroidElements(&root.Nodes, &out)
 	return out, nil
 }
 
-func collectClickableAndroid(nodes *[]androidNode, out *[]UIElement) {
+func collectAndroidElements(nodes *[]androidNode, out *[]UIElement) {
 	for i := range *nodes {
 		n := &(*nodes)[i]
 		x, y, w, h := parseBounds(n.Bounds)
 		if w <= 0 || h <= 0 {
-			collectClickableAndroid(&n.Nodes, out)
+			collectAndroidElements(&n.Nodes, out)
 			continue
 		}
 		clickable := strings.EqualFold(n.Click, "true")
@@ -51,14 +49,12 @@ func collectClickableAndroid(nodes *[]androidNode, out *[]UIElement) {
 		hasID := strings.TrimSpace(n.ResID) != ""
 		if clickable || input || (hasText && hasID) {
 			*out = append(*out, UIElement{
-				Text:       n.Text,
-				ResourceID: n.ResID,
-				X:          x, Y: y, Width: w, Height: h,
-				Clickable:  clickable,
-				InputField: input,
+				Text: n.Text, ResourceID: n.ResID,
+				X: x, Y: y, Width: w, Height: h,
+				Clickable: clickable, InputField: input,
 			})
 		}
-		collectClickableAndroid(&n.Nodes, out)
+		collectAndroidElements(&n.Nodes, out)
 	}
 }
 
@@ -67,10 +63,8 @@ func parseBounds(bounds string) (x, y, w, h int) {
 	if len(parts) != 2 {
 		return 0, 0, 0, 0
 	}
-	leftTop := strings.Trim(parts[0], "[]")
-	rightBot := strings.Trim(parts[1], "[]")
-	lt := strings.Split(leftTop, ",")
-	rb := strings.Split(rightBot, ",")
+	lt := strings.Split(strings.Trim(parts[0], "[]"), ",")
+	rb := strings.Split(strings.Trim(parts[1], "[]"), ",")
 	if len(lt) != 2 || len(rb) != 2 {
 		return 0, 0, 0, 0
 	}
@@ -78,7 +72,5 @@ func parseBounds(bounds string) (x, y, w, h int) {
 	y, _ = strconv.Atoi(strings.TrimSpace(lt[1]))
 	r, _ := strconv.Atoi(strings.TrimSpace(rb[0]))
 	b, _ := strconv.Atoi(strings.TrimSpace(rb[1]))
-	w = r - x
-	h = b - y
-	return x, y, w, h
+	return x, y, r - x, b - y
 }

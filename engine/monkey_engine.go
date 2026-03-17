@@ -95,7 +95,7 @@ func (m *Monkey) Run(ctx context.Context) (events int, crashes int, err error) {
 			if hErr != nil {
 				consecutiveHierarchyErrors++
 				if m.config.OnEvent != nil {
-					m.config.OnEvent(EventLog{Event: i, Platform: m.dev.Platform(), Action: "hierarchy", Status: hErr.Error(), Time: time.Now().Format(time.RFC3339)})
+					m.config.OnEvent(EventLog{Event: i, Platform: device.Platform(m.dev), Action: "hierarchy", Status: hErr.Error(), Time: time.Now().Format(time.RFC3339)})
 				}
 				if consecutiveHierarchyErrors >= maxConsecutiveErrors {
 					return i - 1, crashes, fmt.Errorf("stopped: %d consecutive UI hierarchy errors (app may have crashed or left foreground)", maxConsecutiveErrors)
@@ -114,7 +114,7 @@ func (m *Monkey) Run(ctx context.Context) (events int, crashes int, err error) {
 		}
 		if runErr != nil && runErr != context.Canceled {
 			if m.config.OnEvent != nil {
-				m.config.OnEvent(EventLog{Event: i, Platform: m.dev.Platform(), Action: "error", Status: runErr.Error(), Time: time.Now().Format(time.RFC3339)})
+				m.config.OnEvent(EventLog{Event: i, Platform: device.Platform(m.dev), Action: "error", Status: runErr.Error(), Time: time.Now().Format(time.RFC3339)})
 			}
 		}
 	}
@@ -137,7 +137,7 @@ func (m *Monkey) runOneWithElements(ctx context.Context, eventNum int, elements 
 	}
 	ev := EventLog{
 		Event:    eventNum,
-		Platform: m.dev.Platform(),
+		Platform: device.Platform(m.dev),
 		Action:   string(action.Type),
 		Element:  elDesc,
 		Status:   status,
