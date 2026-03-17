@@ -1,5 +1,10 @@
+# built binary
 monkeyrun
-report/
+# generated report output (not the source package)
+/report/index.html
+/report/events.json
+/report/screenshots/
+/report/logs/
 report-*/
 *.log
 .DS_Store

@@ -190,6 +190,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		StartTime: start, EndTime: time.Now(),
 		TotalEvents: n, TotalCrashes: crashCount,
 		LogLines: det.LastLines(),
+		Platform: info.Platform, DeviceName: info.Name,
 	}
 	for i := range crashes {
 		if crashes[i].Screenshot != "" {

@@ -8,13 +8,19 @@ import (
 )
 
 type androidNode struct {
-	XMLName xml.Name      `xml:"node"`
-	Text    string        `xml:"text,attr"`
-	ResID   string        `xml:"resource-id,attr"`
-	Bounds  string        `xml:"bounds,attr"`
-	Click   string        `xml:"clickable,attr"`
-	Input   string        `xml:"focusable,attr"`
-	Nodes   []androidNode `xml:"node"`
+	XMLName      xml.Name      `xml:"node"`
+	Text         string        `xml:"text,attr"`
+	ResID        string        `xml:"resource-id,attr"`
+	Class        string        `xml:"class,attr"`
+	ContentDesc  string        `xml:"content-desc,attr"`
+	Bounds       string        `xml:"bounds,attr"`
+	Clickable    string        `xml:"clickable,attr"`
+	LongClick    string        `xml:"long-clickable,attr"`
+	Scrollable   string        `xml:"scrollable,attr"`
+	Focusable    string        `xml:"focusable,attr"`
+	Enabled      string        `xml:"enabled,attr"`
+	Checkable    string        `xml:"checkable,attr"`
+	Nodes        []androidNode `xml:"node"`
 }
 
 func parseAndroidUIXML(xmlContent string) ([]UIElement, error) {
@@ -43,19 +49,76 @@ func collectAndroidElements(nodes *[]androidNode, out *[]UIElement) {
 			collectAndroidElements(&n.Nodes, out)
 			continue
 		}
-		clickable := strings.EqualFold(n.Click, "true")
-		input := strings.EqualFold(n.Input, "true") || strings.Contains(strings.ToLower(n.ResID), "edit")
-		hasText := strings.TrimSpace(n.Text) != ""
-		hasID := strings.TrimSpace(n.ResID) != ""
-		if clickable || input || (hasText && hasID) {
-			*out = append(*out, UIElement{
-				Text: n.Text, ResourceID: n.ResID,
-				X: x, Y: y, Width: w, Height: h,
-				Clickable: clickable, InputField: input,
-			})
+
+		enabled := attrBool(n.Enabled, true)
+		if !enabled {
+			collectAndroidElements(&n.Nodes, out)
+			continue
 		}
+
+		clickable := attrBool(n.Clickable, false)
+		longClickable := attrBool(n.LongClick, false)
+		scrollable := attrBool(n.Scrollable, false)
+		focusable := attrBool(n.Focusable, false)
+		checkable := attrBool(n.Checkable, false)
+
+		input := isAndroidInputField(n.Class, n.ResID, focusable)
+
+		hasText := strings.TrimSpace(n.Text) != ""
+		hasDesc := strings.TrimSpace(n.ContentDesc) != ""
+		hasID := strings.TrimSpace(n.ResID) != ""
+
+		actionable := clickable || longClickable || scrollable || input || checkable
+		identifiable := hasText || hasDesc || hasID
+
+		if !actionable && !identifiable {
+			collectAndroidElements(&n.Nodes, out)
+			continue
+		}
+
+		text := n.Text
+		if text == "" {
+			text = n.ContentDesc
+		}
+
+		*out = append(*out, UIElement{
+			Text: text, ResourceID: n.ResID,
+			X: x, Y: y, Width: w, Height: h,
+			Clickable:  clickable || longClickable || checkable,
+			InputField: input,
+			Scrollable: scrollable,
+		})
 		collectAndroidElements(&n.Nodes, out)
 	}
+}
+
+var androidInputClasses = []string{
+	"edittext", "autocompletextview", "searchview",
+	"textinputedittext", "appcompatedittext",
+}
+
+func isAndroidInputField(class, resID string, focusable bool) bool {
+	lc := strings.ToLower(class)
+	for _, c := range androidInputClasses {
+		if strings.Contains(lc, c) {
+			return true
+		}
+	}
+	lr := strings.ToLower(resID)
+	if strings.Contains(lr, "edit") || strings.Contains(lr, "input") || strings.Contains(lr, "search") {
+		return true
+	}
+	if focusable && (strings.Contains(lc, "text") && !strings.Contains(lc, "textview")) {
+		return true
+	}
+	return false
+}
+
+func attrBool(val string, defaultVal bool) bool {
+	if val == "" {
+		return defaultVal
+	}
+	return strings.EqualFold(val, "true")
 }
 
 func parseBounds(bounds string) (x, y, w, h int) {
