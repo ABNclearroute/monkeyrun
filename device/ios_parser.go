@@ -26,7 +26,7 @@ func parseIOSSource(body []byte) ([]UIElement, error) {
 // --- XML format (WDA /source) ---
 
 type iosNode struct {
-	XMLName    xml.Name  `xml:",any"`
+	XMLName    xml.Name
 	Type       string    `xml:"type,attr"`
 	Name       string    `xml:"name,attr"`
 	Label      string    `xml:"label,attr"`

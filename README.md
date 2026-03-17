@@ -1,14 +1,26 @@
 # monkeyrun
 
-Production-ready, cross-platform CLI for mobile chaos (monkey) testing on **Android** and **iOS**. Uses already running emulators/simulators—no Appium, single binary.
+Production-ready, cross-platform CLI for mobile chaos (monkey) testing on **Android** and **iOS**.
+Lightweight, CI/CD friendly, single binary — no Appium, no complex setup.
+
+> Run gesture-based chaos tests on already running emulators and simulators. Detect crashes, log every event, and generate a clean HTML report.
 
 ## Features
 
-- **CLI-first**: `devices`, `run`, `report` commands
-- **Zero setup**: Works with existing ADB devices and booted iOS simulators
-- **Gesture-based**: Human-like taps, double-taps, long-press, swipe, scroll, type, back
-- **Crash detection**: Android (logcat) and iOS (simctl log stream) with screenshots
-- **HTML report**: Summary, timeline, screenshots, logs
+- **CLI-first** — `devices`, `run`, `report`, `replay` commands
+- **Zero setup** — works with existing ADB devices and booted iOS simulators
+- **Gesture-based** — human-like taps, double-taps, long-press, swipe, scroll, type, back
+- **Smart screenshots** — hybrid capture (interval, UI change detection, crash) with async worker pool
+- **Crash detection** — Android (logcat) and iOS (simctl log stream) with severity levels
+- **HTML report** — Playwright-style dark theme with timeline, filters, screenshots, logs
+- **Replay** — reproduce a test run from recorded events
+- **Single binary** — no runtime dependencies, cross-compiles for macOS/Linux/Windows
+
+## Demo
+
+<!-- TODO: Add screenshots or GIF demo of a test run and report -->
+
+*Screenshot of HTML report coming soon.*
 
 ## Requirements
 
@@ -206,6 +218,63 @@ report/
 - UI hierarchy: Android via `uiautomator dump`, iOS via WDA `/source`
 - Actions: weighted random (tap 40%, swipe 20%, etc.) with element-aware choices
 
+## Development
+
+```bash
+# Build
+make build
+
+# Run all tests
+make test
+
+# Format code
+make fmt
+
+# Lint (go vet)
+make lint
+
+# Cross-compile for all platforms
+make build-all
+```
+
+## Roadmap
+
+- [x] Android support (ADB)
+- [x] iOS support (WebDriverAgent + simctl)
+- [x] Gesture-based chaos engine with weighted actions
+- [x] Crash detection (fatal + minor severity)
+- [x] HTML report (Playwright-style)
+- [x] Hybrid screenshot strategy
+- [x] Event replay
+- [ ] Visual replay with touch overlay animation
+- [ ] CI/CD integration examples (GitHub Actions, GitLab CI)
+- [ ] Multi-device parallel runs
+- [ ] Cloud dashboard for test history
+- [ ] Plugin system for custom actions
+
+## Contributing
+
+Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details on:
+
+- Getting started and building locally
+- Project structure
+- Coding guidelines
+- Commit message convention
+- How to submit a pull request
+
+## GitHub Labels
+
+We use the following labels to organize issues and PRs:
+
+| Label | Description |
+|-------|-------------|
+| `bug` | Something isn't working |
+| `enhancement` | New feature or improvement |
+| `good first issue` | Great for newcomers |
+| `help wanted` | Looking for contributors |
+| `documentation` | Documentation improvements |
+| `question` | Further information is requested |
+
 ## Releasing a new version
 
 Tag and push — GitHub Actions will build and publish binaries automatically:
@@ -219,4 +288,4 @@ Binaries for macOS, Linux, and Windows (amd64 + arm64) will appear on the [Relea
 
 ## License
 
-MIT
+[MIT](LICENSE)
