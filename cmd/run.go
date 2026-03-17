@@ -30,6 +30,7 @@ var (
 	runDelayMax  int
 	runHierarchyEvery int
 	runShowTouches bool
+	runStopOnCrash bool
 )
 
 var runCmd = &cobra.Command{
@@ -51,6 +52,7 @@ func init() {
 	runCmd.Flags().IntVar(&runDelayMax, "delay-max", 800, "Max delay between actions in ms (set lower for faster runs)")
 	runCmd.Flags().IntVar(&runHierarchyEvery, "hierarchy-every", 1, "Refresh UI hierarchy every N events (increase for faster runs)")
 	runCmd.Flags().BoolVar(&runShowTouches, "show-touches", false, "Android only: enable visual touch indicators while running")
+	runCmd.Flags().BoolVar(&runStopOnCrash, "stop-on-crash", true, "Stop execution immediately when a fatal crash is detected")
 	runCmd.MarkFlagRequired("platform")
 }
 
@@ -130,12 +132,13 @@ func runRun(cmd *cobra.Command, args []string) error {
 	}
 
 	cfg := engine.RunConfig{
-		Events:    runEvents,
-		ReportDir: reportDir,
-		Verbose:   runVerbose,
-		DelayMinMs: runDelayMin,
-		DelayMaxMs: runDelayMax,
+		Events:         runEvents,
+		ReportDir:      reportDir,
+		Verbose:        runVerbose,
+		DelayMinMs:     runDelayMin,
+		DelayMaxMs:     runDelayMax,
 		HierarchyEvery: runHierarchyEvery,
+		StopOnCrash:    runStopOnCrash,
 		OnEvent: func(ev engine.EventLog) {
 			lastEventMu.Lock()
 			lastEventNum = ev.Event
@@ -167,24 +170,34 @@ func runRun(cmd *cobra.Command, args []string) error {
 					if !ok {
 						return
 					}
-					if isCrash, msg := det.Check(line); isCrash && msg != "" {
-						lastEventMu.Lock()
-						evNum := lastEventNum
-						lastEventMu.Unlock()
-						screenshotPath := filepath.Join(screenshotsDir, fmt.Sprintf("crash_%d_%d.png", evNum, time.Now().Unix()))
-						if err := dev.Screenshot(ctx, screenshotPath); err != nil && runVerbose {
-							fmt.Fprintln(os.Stderr, "Screenshot failed:", err)
-						}
-						logSnippet := strings.Join(det.LastLines(), "\n")
-						if len(logSnippet) > 4096 {
-							logSnippet = logSnippet[len(logSnippet)-4096:]
-						}
-						cfg.OnCrash(engine.CrashInfo{
-							Event:       evNum,
-							Message:     msg,
-							Screenshot:  screenshotPath,
-							LogSnippet:  logSnippet,
-						})
+					severity, msg := det.Check(line)
+					if severity == crash.SeverityNone || msg == "" {
+						continue
+					}
+					lastEventMu.Lock()
+					evNum := lastEventNum
+					lastEventMu.Unlock()
+					screenshotPath := filepath.Join(screenshotsDir, fmt.Sprintf("crash_%d_%d.png", evNum, time.Now().Unix()))
+					if err := dev.Screenshot(ctx, screenshotPath); err != nil && runVerbose {
+						fmt.Fprintln(os.Stderr, "Screenshot failed:", err)
+					}
+					logSnippet := strings.Join(det.LastLines(), "\n")
+					if len(logSnippet) > 4096 {
+						logSnippet = logSnippet[len(logSnippet)-4096:]
+					}
+					cfg.OnCrash(engine.CrashInfo{
+						Event:      evNum,
+						Message:    msg,
+						Screenshot: screenshotPath,
+						LogSnippet: logSnippet,
+					})
+					if severity == crash.SeverityFatal && runStopOnCrash {
+						fmt.Fprintf(os.Stderr, "\n*** FATAL CRASH detected at event %d — stopping execution ***\n  %s\n\n", evNum, msg)
+						cancel()
+						return
+					}
+					if severity == crash.SeverityMinor && runVerbose {
+						fmt.Fprintf(os.Stderr, "  [minor crash] event %d: %s\n", evNum, msg)
 					}
 				}
 			}

@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"monkeyrun/device"
 	"sync"
@@ -29,6 +30,8 @@ type RunConfig struct {
 	DelayMaxMs int
 	// HierarchyEvery controls how often UI hierarchy is refreshed. If 0, defaults to 1 (every event).
 	HierarchyEvery int
+	// StopOnCrash cancels the run when a fatal crash is detected (default: true).
+	StopOnCrash bool
 	OnEvent     func(EventLog)
 	OnCrash     func(CrashInfo)
 	ReplayFile  string // optional: replay from JSON
@@ -77,6 +80,8 @@ func (m *Monkey) Run(ctx context.Context) (events int, crashes int, err error) {
 	}
 	var cached []device.UIElement
 	var cachedAt int
+	consecutiveHierarchyErrors := 0
+	const maxConsecutiveErrors = 5
 
 	for i := 1; i <= m.config.Events; i++ {
 		select {
@@ -85,15 +90,18 @@ func (m *Monkey) Run(ctx context.Context) (events int, crashes int, err error) {
 		default:
 		}
 
-		// Refresh hierarchy only every N events, reuse in-between for speed.
 		if cached == nil || (i-cachedAt) >= hEvery {
 			elements, hErr := m.dev.GetUIHierarchy(ctx)
 			if hErr != nil {
-				// Log but continue
+				consecutiveHierarchyErrors++
 				if m.config.OnEvent != nil {
 					m.config.OnEvent(EventLog{Event: i, Platform: m.dev.Platform(), Action: "hierarchy", Status: hErr.Error(), Time: time.Now().Format(time.RFC3339)})
 				}
+				if consecutiveHierarchyErrors >= maxConsecutiveErrors {
+					return i - 1, crashes, fmt.Errorf("stopped: %d consecutive UI hierarchy errors (app may have crashed or left foreground)", maxConsecutiveErrors)
+				}
 			} else {
+				consecutiveHierarchyErrors = 0
 				cached = elements
 				cachedAt = i
 			}
@@ -106,11 +114,8 @@ func (m *Monkey) Run(ctx context.Context) (events int, crashes int, err error) {
 		}
 		if runErr != nil && runErr != context.Canceled {
 			if m.config.OnEvent != nil {
-				m.config.OnEvent(EventLog{Event: i, Platform: m.dev.Platform(), Action: "error", Status: runErr.Error()})
+				m.config.OnEvent(EventLog{Event: i, Platform: m.dev.Platform(), Action: "error", Status: runErr.Error(), Time: time.Now().Format(time.RFC3339)})
 			}
-		}
-		if crashed {
-			// Optional: stop on first crash or continue; we continue by default
 		}
 	}
 	return events, crashes, nil

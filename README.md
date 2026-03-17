@@ -150,6 +150,18 @@ monkeyrun replay --report report --platform android --events 100
 - `--delay-max`: Max delay between actions in ms (default: 800)
 - `--hierarchy-every`: Refresh UI hierarchy every N events (default: 1). Increase for faster runs.
 - `--show-touches`: Android only: enable visual touch indicators while running
+- `--stop-on-crash`: Stop execution immediately on fatal crash (default: `true`). Use `--stop-on-crash=false` to keep going.
+
+## Crash handling
+
+monkeyrun classifies crashes into two severity levels:
+
+| Severity | Keywords (Android) | Keywords (iOS) | Behavior |
+|----------|-------------------|----------------|----------|
+| **Fatal** | `FATAL EXCEPTION`, `SIGSEGV`, `Fatal signal`, `ANR in` | `SIGABRT`, `SIGSEGV`, `Terminating app`, `Exception Type`, `fatal error` | Stops execution (with `--stop-on-crash`), screenshot + logs saved |
+| **Minor** | `AndroidRuntime`, `Force finishing`, `has died` | `Assertion failed`, `crash` | Logged to report, execution continues |
+
+The engine also stops if **5 consecutive UI hierarchy errors** occur (meaning the app likely left the foreground or is unresponsive).
 
 ## Report layout
 
