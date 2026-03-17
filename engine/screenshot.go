@@ -7,9 +7,13 @@ import (
 	"fmt"
 	"monkeyrun/device"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strings"
 	"sync"
 )
+
+var unsafeChars = regexp.MustCompile(`[^a-zA-Z0-9_-]`)
 
 // ScreenshotMode controls when screenshots are captured.
 type ScreenshotMode string
@@ -100,8 +104,9 @@ func (s *Screenshotter) ShouldCapture(eventNum int, elements []device.UIElement)
 }
 
 // Enqueue submits a screenshot job (non-blocking). Returns the filename.
-func (s *Screenshotter) Enqueue(eventNum int) string {
-	name := fmt.Sprintf("event_%d.png", eventNum)
+// action and element are used for a descriptive filename.
+func (s *Screenshotter) Enqueue(eventNum int, action, element string) string {
+	name := screenshotName("monkeyrun", eventNum, action, element)
 	path := filepath.Join(s.config.Dir, name)
 	select {
 	case s.jobs <- ScreenshotJob{EventNum: eventNum, Path: path}:
@@ -113,7 +118,7 @@ func (s *Screenshotter) Enqueue(eventNum int) string {
 
 // EnqueueCrash captures a crash screenshot synchronously (never dropped).
 func (s *Screenshotter) EnqueueCrash(eventNum int) string {
-	name := fmt.Sprintf("crash_%d.png", eventNum)
+	name := fmt.Sprintf("monkeyrun_crash_evt%04d.png", eventNum)
 	path := filepath.Join(s.config.Dir, name)
 	ctx := context.Background()
 	if err := s.dev.Screenshot(ctx, path); err == nil {
@@ -122,6 +127,24 @@ func (s *Screenshotter) EnqueueCrash(eventNum int) string {
 		s.takenMu.Unlock()
 	}
 	return name
+}
+
+func screenshotName(prefix string, eventNum int, action, element string) string {
+	element = sanitizeForFilename(element)
+	if element != "" {
+		return fmt.Sprintf("%s_evt%04d_%s_%s.png", prefix, eventNum, action, element)
+	}
+	return fmt.Sprintf("%s_evt%04d_%s.png", prefix, eventNum, action)
+}
+
+func sanitizeForFilename(s string) string {
+	s = strings.TrimSpace(s)
+	s = unsafeChars.ReplaceAllString(s, "_")
+	s = strings.Trim(s, "_")
+	if len(s) > 30 {
+		s = s[:30]
+	}
+	return s
 }
 
 // Close drains the job queue and waits for workers to finish.

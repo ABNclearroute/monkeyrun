@@ -208,7 +208,7 @@ The engine also stops if **5 consecutive UI hierarchy errors** occur (meaning th
 report/
   index.html      # Summary, timeline, crashes, screenshots, logs
   events.json     # Event log (includes x/y coordinates and screenshot flags)
-  screenshots/    # Event and crash screenshots (event_N.png, crash_N.png)
+  screenshots/    # Descriptive names (monkeyrun_evt0025_tap_Login.png, monkeyrun_crash_evt0032.png)
   logs/           # crash.log
 ```
 

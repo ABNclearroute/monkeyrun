@@ -153,7 +153,7 @@ func (m *Monkey) runOneWithElements(ctx context.Context, eventNum int, elements 
 
 	tookScreenshot := false
 	if m.screenshotter != nil && m.screenshotter.ShouldCapture(eventNum, elements) {
-		m.screenshotter.Enqueue(eventNum)
+		m.screenshotter.Enqueue(eventNum, string(action.Type), elDesc)
 		tookScreenshot = true
 	}
 

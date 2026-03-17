@@ -180,7 +180,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 					if ss := monkey.Screenshotter(); ss != nil {
 						screenshotFile = ss.EnqueueCrash(evNum)
 					} else {
-						screenshotFile = fmt.Sprintf("crash_%d_%d.png", evNum, time.Now().Unix())
+						screenshotFile = fmt.Sprintf("monkeyrun_crash_evt%04d.png", evNum)
 						spath := filepath.Join(screenshotsDir, screenshotFile)
 						if err := dev.Screenshot(ctx, spath); err != nil && runVerbose {
 							fmt.Fprintln(os.Stderr, "Screenshot failed:", err)
