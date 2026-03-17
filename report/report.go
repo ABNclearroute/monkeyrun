@@ -10,12 +10,15 @@ import (
 )
 
 type EventEntry struct {
-	Event    int    `json:"event"`
-	Platform string `json:"platform"`
-	Action   string `json:"action"`
-	Element  string `json:"element,omitempty"`
-	Status   string `json:"status"`
-	Time     string `json:"time,omitempty"`
+	Event      int    `json:"event"`
+	Platform   string `json:"platform"`
+	Action     string `json:"action"`
+	Element    string `json:"element,omitempty"`
+	X          int    `json:"x,omitempty"`
+	Y          int    `json:"y,omitempty"`
+	Status     string `json:"status"`
+	Time       string `json:"time,omitempty"`
+	Screenshot bool   `json:"screenshot"`
 }
 
 type CrashEntry struct {
@@ -37,6 +40,8 @@ type Report struct {
 	TotalCrashes int
 	Platform     string
 	DeviceName   string
+	// ClosestScreenshot maps event number → screenshot filename for display.
+	ClosestScreenshot map[int]string
 }
 
 func (r *Report) WriteEventsJSON() error {
@@ -246,7 +251,7 @@ pre.log-box{background:var(--surface);border:1px solid var(--border);border-radi
     </div>
     <div class="timeline-wrap">
       <table id="events-table">
-        <thead><tr><th>#</th><th>Time</th><th>Action</th><th>Element</th><th>Status</th></tr></thead>
+        <thead><tr><th>#</th><th>Time</th><th>Action</th><th>Element</th><th>Coords</th><th>Status</th><th></th></tr></thead>
         <tbody>`)
 	for _, e := range r.Events {
 		statusCls := "status-pass"
@@ -264,7 +269,25 @@ pre.log-box{background:var(--surface);border:1px solid var(--border);border-radi
 		fmt.Fprintf(sb, `<td>%s</td>`, esc(timeShort))
 		fmt.Fprintf(sb, `<td><span class="action-badge badge-%s">%s</span></td>`, e.Action, esc(e.Action))
 		fmt.Fprintf(sb, `<td class="element-name">%s</td>`, esc(e.Element))
+		if e.X != 0 || e.Y != 0 {
+			fmt.Fprintf(sb, `<td class="element-name">%d,%d</td>`, e.X, e.Y)
+		} else {
+			sb.WriteString(`<td></td>`)
+		}
 		fmt.Fprintf(sb, `<td class="%s">%s</td>`, statusCls, statusTxt)
+		if e.Screenshot {
+			ssName := ""
+			if r.ClosestScreenshot != nil {
+				ssName = r.ClosestScreenshot[e.Event]
+			}
+			if ssName != "" {
+				fmt.Fprintf(sb, `<td><a href="screenshots/%s" title="View screenshot" style="color:var(--cyan);text-decoration:none">&#128247;</a></td>`, esc(ssName))
+			} else {
+				sb.WriteString(`<td style="color:var(--cyan)">&#128247;</td>`)
+			}
+		} else {
+			sb.WriteString(`<td></td>`)
+		}
 		sb.WriteString(`</tr>`)
 	}
 	sb.WriteString(`</tbody></table>

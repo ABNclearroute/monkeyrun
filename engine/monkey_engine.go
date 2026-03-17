@@ -32,6 +32,8 @@ type RunConfig struct {
 	HierarchyEvery int
 	// StopOnCrash cancels the run when a fatal crash is detected (default: true).
 	StopOnCrash bool
+	// Screenshot strategy configuration.
+	ScreenshotCfg ScreenshotConfig
 	OnEvent     func(EventLog)
 	OnCrash     func(CrashInfo)
 	ReplayFile  string // optional: replay from JSON
@@ -39,12 +41,15 @@ type RunConfig struct {
 
 // EventLog is one logged event.
 type EventLog struct {
-	Event    int    `json:"event"`
-	Platform string `json:"platform"`
-	Action   string `json:"action"`
-	Element  string `json:"element,omitempty"`
-	Status   string `json:"status"`
-	Time     string `json:"time,omitempty"`
+	Event      int    `json:"event"`
+	Platform   string `json:"platform"`
+	Action     string `json:"action"`
+	Element    string `json:"element,omitempty"`
+	X          int    `json:"x,omitempty"`
+	Y          int    `json:"y,omitempty"`
+	Status     string `json:"status"`
+	Time       string `json:"time,omitempty"`
+	Screenshot bool   `json:"screenshot"`
 }
 
 // CrashInfo holds crash details.
@@ -57,10 +62,11 @@ type CrashInfo struct {
 
 // Monkey runs the chaos test loop.
 type Monkey struct {
-	dev    device.Device
-	config RunConfig
-	rand   *rand.Rand
-	mu     sync.Mutex
+	dev          device.Device
+	config       RunConfig
+	rand         *rand.Rand
+	mu           sync.Mutex
+	screenshotter *Screenshotter
 }
 
 // NewMonkey creates a monkey engine for the given device.
@@ -72,12 +78,21 @@ func NewMonkey(dev device.Device, config RunConfig) *Monkey {
 	}
 }
 
+// Screenshotter returns the engine's screenshotter (may be nil).
+func (m *Monkey) Screenshotter() *Screenshotter { return m.screenshotter }
+
 // Run executes the monkey test for config.Events iterations.
 func (m *Monkey) Run(ctx context.Context) (events int, crashes int, err error) {
 	hEvery := m.config.HierarchyEvery
 	if hEvery <= 0 {
 		hEvery = 1
 	}
+
+	if m.config.ScreenshotCfg.Dir != "" {
+		m.screenshotter = NewScreenshotter(m.dev, m.config.ScreenshotCfg, 2)
+		defer m.screenshotter.Close()
+	}
+
 	var cached []device.UIElement
 	var cachedAt int
 	consecutiveHierarchyErrors := 0
@@ -135,13 +150,23 @@ func (m *Monkey) runOneWithElements(ctx context.Context, eventNum int, elements 
 	if err != nil {
 		status = err.Error()
 	}
+
+	tookScreenshot := false
+	if m.screenshotter != nil && m.screenshotter.ShouldCapture(eventNum, elements) {
+		m.screenshotter.Enqueue(eventNum)
+		tookScreenshot = true
+	}
+
 	ev := EventLog{
-		Event:    eventNum,
-		Platform: device.Platform(m.dev),
-		Action:   string(action.Type),
-		Element:  elDesc,
-		Status:   status,
-		Time:     time.Now().Format(time.RFC3339),
+		Event:      eventNum,
+		Platform:   device.Platform(m.dev),
+		Action:     string(action.Type),
+		Element:    elDesc,
+		X:          action.X,
+		Y:          action.Y,
+		Status:     status,
+		Time:       time.Now().Format(time.RFC3339),
+		Screenshot: tookScreenshot,
 	}
 	if m.config.OnEvent != nil {
 		m.config.OnEvent(ev)

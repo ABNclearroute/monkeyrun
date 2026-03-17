@@ -151,6 +151,33 @@ monkeyrun replay --report report --platform android --events 100
 - `--hierarchy-every`: Refresh UI hierarchy every N events (default: 1). Increase for faster runs.
 - `--show-touches`: Android only: enable visual touch indicators while running
 - `--stop-on-crash`: Stop execution immediately on fatal crash (default: `true`). Use `--stop-on-crash=false` to keep going.
+- `--screenshot-mode`: Screenshot capture strategy (default: `balanced`). Options: `minimal`, `balanced`, `full`.
+- `--screenshot-interval`: Capture a screenshot every N events in balanced/full mode (default: `25`).
+
+## Screenshot strategy
+
+monkeyrun uses a hybrid screenshot capture strategy that balances performance and visual debugging. Instead of capturing every event, screenshots are taken intelligently.
+
+| Mode | Captures when | Best for |
+|------|---------------|----------|
+| `minimal` | Crash only | CI/CD pipelines, maximum speed |
+| `balanced` (default) | Every N events, UI changes, crashes | General use |
+| `full` | Every event | Detailed debugging |
+
+**UI change detection**: In `balanced` mode, monkeyrun hashes the current UI hierarchy (SHA-256) and compares it with the previous hash. A screenshot is taken whenever the UI visually changes, even outside the interval.
+
+Screenshots are captured asynchronously via a worker pool so the monkey test is never blocked. Crash screenshots are always captured synchronously to guarantee availability.
+
+```bash
+# Minimal screenshots (fast, small reports)
+monkeyrun run --platform android --app com.demo.app --events 5000 --screenshot-mode minimal
+
+# Balanced with custom interval
+monkeyrun run --platform android --app com.demo.app --events 5000 --screenshot-interval 50
+
+# Full screenshots for debugging
+monkeyrun run --platform android --app com.demo.app --events 200 --screenshot-mode full
+```
 
 ## Crash handling
 
@@ -168,8 +195,8 @@ The engine also stops if **5 consecutive UI hierarchy errors** occur (meaning th
 ```
 report/
   index.html      # Summary, timeline, crashes, screenshots, logs
-  events.json     # Event log
-  screenshots/    # Crash screenshots
+  events.json     # Event log (includes x/y coordinates and screenshot flags)
+  screenshots/    # Event and crash screenshots (event_N.png, crash_N.png)
   logs/           # crash.log
 ```
 

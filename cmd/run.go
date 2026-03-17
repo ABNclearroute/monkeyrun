@@ -20,17 +20,19 @@ import (
 )
 
 var (
-	runPlatform       string
-	runApp            string
-	runEvents         int
-	runReportDir      string
-	runDevice         string
-	runVerbose        bool
-	runDelayMin       int
-	runDelayMax       int
-	runHierarchyEvery int
-	runShowTouches    bool
-	runStopOnCrash    bool
+	runPlatform            string
+	runApp                 string
+	runEvents              int
+	runReportDir           string
+	runDevice              string
+	runVerbose             bool
+	runDelayMin            int
+	runDelayMax            int
+	runHierarchyEvery      int
+	runShowTouches         bool
+	runStopOnCrash         bool
+	runScreenshotMode      string
+	runScreenshotInterval  int
 )
 
 var runCmd = &cobra.Command{
@@ -53,6 +55,8 @@ func init() {
 	runCmd.Flags().IntVar(&runHierarchyEvery, "hierarchy-every", 1, "Refresh UI hierarchy every N events")
 	runCmd.Flags().BoolVar(&runShowTouches, "show-touches", false, "Enable visual touch indicators while running")
 	runCmd.Flags().BoolVar(&runStopOnCrash, "stop-on-crash", true, "Stop execution on fatal crash")
+	runCmd.Flags().StringVar(&runScreenshotMode, "screenshot-mode", "balanced", "Screenshot strategy: minimal, balanced, or full")
+	runCmd.Flags().IntVar(&runScreenshotInterval, "screenshot-interval", 25, "Capture screenshot every N events (balanced/full mode)")
 	runCmd.MarkFlagRequired("platform")
 }
 
@@ -108,6 +112,14 @@ func runRun(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(os.Stderr, "Log stream failed:", logStreamErr)
 	}
 
+	ssMode := engine.ScreenshotBalanced
+	switch strings.ToLower(runScreenshotMode) {
+	case "minimal":
+		ssMode = engine.ScreenshotMinimal
+	case "full":
+		ssMode = engine.ScreenshotFull
+	}
+
 	cfg := engine.RunConfig{
 		Events:         runEvents,
 		ReportDir:      reportDir,
@@ -116,6 +128,11 @@ func runRun(cmd *cobra.Command, args []string) error {
 		DelayMaxMs:     runDelayMax,
 		HierarchyEvery: runHierarchyEvery,
 		StopOnCrash:    runStopOnCrash,
+		ScreenshotCfg: engine.ScreenshotConfig{
+			Mode:     ssMode,
+			Interval: runScreenshotInterval,
+			Dir:      screenshotsDir,
+		},
 		OnEvent: func(ev engine.EventLog) {
 			lastEventMu.Lock()
 			lastEventNum = ev.Event
@@ -123,7 +140,9 @@ func runRun(cmd *cobra.Command, args []string) error {
 			eventsMu.Lock()
 			events = append(events, report.EventEntry{
 				Event: ev.Event, Platform: ev.Platform, Action: ev.Action,
-				Element: ev.Element, Status: ev.Status, Time: ev.Time,
+				Element: ev.Element, X: ev.X, Y: ev.Y,
+				Status: ev.Status, Time: ev.Time,
+				Screenshot: ev.Screenshot,
 			})
 			eventsMu.Unlock()
 		},
@@ -136,6 +155,8 @@ func runRun(cmd *cobra.Command, args []string) error {
 			eventsMu.Unlock()
 		},
 	}
+
+	monkey := engine.NewMonkey(dev, cfg)
 
 	if logStreamErr == nil {
 		go func() {
@@ -155,17 +176,24 @@ func runRun(cmd *cobra.Command, args []string) error {
 					evNum := lastEventNum
 					lastEventMu.Unlock()
 
-					screenshotPath := filepath.Join(screenshotsDir, fmt.Sprintf("crash_%d_%d.png", evNum, time.Now().Unix()))
-					if err := dev.Screenshot(ctx, screenshotPath); err != nil && runVerbose {
-						fmt.Fprintln(os.Stderr, "Screenshot failed:", err)
+					screenshotFile := ""
+					if ss := monkey.Screenshotter(); ss != nil {
+						screenshotFile = ss.EnqueueCrash(evNum)
+					} else {
+						screenshotFile = fmt.Sprintf("crash_%d_%d.png", evNum, time.Now().Unix())
+						spath := filepath.Join(screenshotsDir, screenshotFile)
+						if err := dev.Screenshot(ctx, spath); err != nil && runVerbose {
+							fmt.Fprintln(os.Stderr, "Screenshot failed:", err)
+						}
 					}
+
 					logSnippet := strings.Join(det.LastLines(), "\n")
 					if len(logSnippet) > 4096 {
 						logSnippet = logSnippet[len(logSnippet)-4096:]
 					}
 					cfg.OnCrash(engine.CrashInfo{
 						Event: evNum, Message: msg,
-						Screenshot: screenshotPath, LogSnippet: logSnippet,
+						Screenshot: screenshotFile, LogSnippet: logSnippet,
 					})
 					if severity == crash.SeverityFatal && runStopOnCrash {
 						fmt.Fprintf(os.Stderr, "\n*** FATAL CRASH at event %d — stopping ***\n  %s\n\n", evNum, msg)
@@ -179,8 +207,6 @@ func runRun(cmd *cobra.Command, args []string) error {
 			}
 		}()
 	}
-
-	monkey := engine.NewMonkey(dev, cfg)
 	start := time.Now()
 	n, crashCount, runErr := monkey.Run(ctx)
 	elapsed := time.Since(start)
@@ -192,11 +218,23 @@ func runRun(cmd *cobra.Command, args []string) error {
 		LogLines: det.LastLines(),
 		Platform: info.Platform, DeviceName: info.Name,
 	}
-	for i := range crashes {
-		if crashes[i].Screenshot != "" {
-			rep.Screenshots = append(rep.Screenshots, filepath.Base(crashes[i].Screenshot))
+
+	if ss := monkey.Screenshotter(); ss != nil {
+		rep.Screenshots = ss.TakenScreenshots()
+		rep.ClosestScreenshot = make(map[int]string)
+		for _, e := range events {
+			if e.Screenshot {
+				rep.ClosestScreenshot[e.Event] = ss.ClosestScreenshot(e.Event)
+			}
+		}
+	} else {
+		for i := range crashes {
+			if crashes[i].Screenshot != "" {
+				rep.Screenshots = append(rep.Screenshots, filepath.Base(crashes[i].Screenshot))
+			}
 		}
 	}
+
 	_ = rep.WriteEventsJSON()
 	_ = rep.WriteLogs()
 	_ = rep.WriteHTML()
