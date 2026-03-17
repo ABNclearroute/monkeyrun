@@ -18,7 +18,7 @@ Lightweight, CI/CD friendly, single binary — no Appium, no complex setup.
 
 ## Demo
 
-<video src="assets/demo.mp4" controls width="600"></video>
+https://github.com/ABNclearroute/monkeyrun/raw/main/assets/demo.mp4
 
 > **[View sample HTML report](assets/demo-report.html)** — a self-contained Playwright-style dark-themed report with timeline, crash cards, screenshots, and logs.
 
