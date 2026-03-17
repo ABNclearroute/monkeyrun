@@ -113,6 +113,62 @@ func (d *AndroidDevice) Back(ctx context.Context) error {
 	return err
 }
 
+func (d *AndroidDevice) Home(ctx context.Context) error {
+	_, err := d.adb(ctx, "shell", "input", "keyevent", "3")
+	return err
+}
+
+func (d *AndroidDevice) PinchIn(ctx context.Context, x, y int, scale float64) error {
+	offset := int(100 * scale)
+	if offset < 50 {
+		offset = 50
+	}
+	// Two fingers moving inward concurrently
+	go d.adb(ctx, "shell", "input", "swipe",
+		itoa(x-offset), itoa(y), itoa(x-10), itoa(y), "300")
+	_, err := d.adb(ctx, "shell", "input", "swipe",
+		itoa(x+offset), itoa(y), itoa(x+10), itoa(y), "300")
+	return err
+}
+
+func (d *AndroidDevice) PinchOut(ctx context.Context, x, y int, scale float64) error {
+	offset := int(100 * scale)
+	if offset < 50 {
+		offset = 50
+	}
+	// Two fingers moving outward concurrently
+	go d.adb(ctx, "shell", "input", "swipe",
+		itoa(x-10), itoa(y), itoa(x-offset), itoa(y), "300")
+	_, err := d.adb(ctx, "shell", "input", "swipe",
+		itoa(x+10), itoa(y), itoa(x+offset), itoa(y), "300")
+	return err
+}
+
+func (d *AndroidDevice) OpenNotifications(ctx context.Context) error {
+	_, err := d.adb(ctx, "shell", "cmd", "statusbar", "expand-notifications")
+	return err
+}
+
+func (d *AndroidDevice) ClearText(ctx context.Context) error {
+	// Ctrl+A (select all) then Delete
+	_, _ = d.adb(ctx, "shell", "input", "keyevent", "--longpress", "29", "113") // Ctrl+A
+	_, err := d.adb(ctx, "shell", "input", "keyevent", "67")                    // DEL
+	return err
+}
+
+func (d *AndroidDevice) RotateDevice(ctx context.Context) error {
+	// Disable accelerometer rotation, then toggle user_rotation between 0 (portrait) and 1 (landscape)
+	d.adb(ctx, "shell", "settings", "put", "system", "accelerometer_rotation", "0")
+	out, _ := d.adb(ctx, "shell", "settings", "get", "system", "user_rotation")
+	current := strings.TrimSpace(string(out))
+	next := "1"
+	if current == "1" {
+		next = "0"
+	}
+	_, err := d.adb(ctx, "shell", "settings", "put", "system", "user_rotation", next)
+	return err
+}
+
 // --- Inspector ---
 
 func (d *AndroidDevice) GetUIHierarchy(ctx context.Context) ([]UIElement, error) {

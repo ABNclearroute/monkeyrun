@@ -15,14 +15,49 @@ func TestWeightedActionDistribution(t *testing.T) {
 		counts[a]++
 	}
 	expect := map[ActionType]int{
-		Tap: 40, DoubleTap: 10, LongPress: 10,
-		Swipe: 20, Scroll: 10, Type: 5, Back: 5,
+		Tap: 35, DoubleTap: 8, LongPress: 8,
+		Swipe: 15, Scroll: 8, Type: 4, Back: 4,
+		PinchIn: 4, PinchOut: 4, Home: 3,
+		OpenNotifications: 3, ClearText: 2, RotateDevice: 2,
 	}
 	for action, pct := range expect {
 		got := float64(counts[action]) / float64(n) * 100
 		if got < float64(pct)-5 || got > float64(pct)+5 {
 			t.Errorf("%s: expected ~%d%%, got %.1f%%", action, pct, got)
 		}
+	}
+}
+
+func TestAllActionTypesAppear(t *testing.T) {
+	m := &Monkey{rand: rand.New(rand.NewSource(99))}
+	seen := map[ActionType]bool{}
+	for i := 0; i < 5000; i++ {
+		a := m.weightedAction(m.rand, nil)
+		seen[a] = true
+	}
+	all := []ActionType{Tap, DoubleTap, LongPress, Swipe, Scroll, Type, Back,
+		PinchIn, PinchOut, Home, OpenNotifications, ClearText, RotateDevice}
+	for _, a := range all {
+		if !seen[a] {
+			t.Errorf("action %s never appeared in 5000 rolls", a)
+		}
+	}
+}
+
+func TestInputFieldPrefersClearText(t *testing.T) {
+	m := &Monkey{rand: rand.New(rand.NewSource(42))}
+	el := &device.UIElement{InputField: true, X: 10, Y: 10, Width: 100, Height: 40}
+	clearCount := 0
+	n := 1000
+	for i := 0; i < n; i++ {
+		a := m.weightedAction(m.rand, el)
+		if a == ClearText {
+			clearCount++
+		}
+	}
+	pct := float64(clearCount) / float64(n) * 100
+	if pct < 5 {
+		t.Errorf("expected ClearText to appear >5%% for input fields, got %.1f%%", pct)
 	}
 }
 

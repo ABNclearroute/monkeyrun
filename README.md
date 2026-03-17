@@ -9,7 +9,7 @@ Lightweight, CI/CD friendly, single binary — no Appium, no complex setup.
 
 - **CLI-first** — `devices`, `run`, `report`, `replay` commands
 - **Zero setup** — works with existing ADB devices and booted iOS simulators
-- **Gesture-based** — human-like taps, double-taps, long-press, swipe, scroll, type, back
+- **13 actions** — tap, double-tap, long-press, swipe, scroll, type, back, pinch in/out, home, notifications, clear text, rotate
 - **Smart screenshots** — hybrid capture (interval, UI change detection, crash) with async worker pool
 - **Crash detection** — Android (logcat) and iOS (simctl log stream) with severity levels
 - **HTML report** — Playwright-style dark theme with timeline, filters, screenshots, logs
@@ -191,6 +191,26 @@ monkeyrun run --platform android --app com.demo.app --events 5000 --screenshot-i
 monkeyrun run --platform android --app com.demo.app --events 200 --screenshot-mode full
 ```
 
+## Actions
+
+monkeyrun supports 13 gesture and navigation actions, selected randomly with weighted probabilities. Smart selection prefers contextually appropriate actions (e.g. `type`/`clearText` for input fields, `swipe` for scrollable elements).
+
+| Action | Weight | Description |
+|--------|--------|-------------|
+| `tap` | 35% | Single tap on element |
+| `doubleTap` | 8% | Double tap on element |
+| `longPress` | 8% | Long press (500-1000ms) |
+| `swipe` | 15% | Swipe in random direction |
+| `scroll` | 8% | Scroll gesture |
+| `type` | 4% | Type random text into input |
+| `back` | 4% | Press back button |
+| `pinchIn` | 4% | Two-finger pinch inward (zoom out) |
+| `pinchOut` | 4% | Two-finger pinch outward (zoom in) |
+| `home` | 3% | Press home button |
+| `openNotifications` | 3% | Pull down notification shade |
+| `clearText` | 2% | Select all and delete text |
+| `rotateDevice` | 2% | Toggle portrait/landscape |
+
 ## Crash handling
 
 monkeyrun classifies crashes into two severity levels:
@@ -216,7 +236,7 @@ report/
 
 - **CLI** (Cobra) → **Engine** → **Device** interface → **Android** (ADB) / **iOS** (WebDriverAgent + simctl)
 - UI hierarchy: Android via `uiautomator dump`, iOS via WDA `/source`
-- Actions: weighted random (tap 40%, swipe 20%, etc.) with element-aware choices
+- 13 action types with weighted random selection and element-aware smart choices
 
 ## Development
 

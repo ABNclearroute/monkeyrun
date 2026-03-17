@@ -37,6 +37,12 @@ type Gesturer interface {
 	Swipe(ctx context.Context, x1, y1, x2, y2 int) error
 	Type(ctx context.Context, text string) error
 	Back(ctx context.Context) error
+	Home(ctx context.Context) error
+	PinchIn(ctx context.Context, x, y int, scale float64) error
+	PinchOut(ctx context.Context, x, y int, scale float64) error
+	OpenNotifications(ctx context.Context) error
+	ClearText(ctx context.Context) error
+	RotateDevice(ctx context.Context) error
 }
 
 // Inspector reads state from a device (hierarchy, screenshots).

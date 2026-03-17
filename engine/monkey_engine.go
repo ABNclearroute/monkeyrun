@@ -11,13 +11,19 @@ import (
 
 // Weights for action selection (must sum to 100).
 const (
-	weightTap       = 40
-	weightDoubleTap = 10
-	weightLongPress = 10
-	weightSwipe     = 20
-	weightScroll    = 10
-	weightType      = 5
-	weightBack      = 5
+	weightTap               = 35
+	weightDoubleTap         = 8
+	weightLongPress         = 8
+	weightSwipe             = 15
+	weightScroll            = 8
+	weightType              = 4
+	weightBack              = 4
+	weightPinchIn           = 4
+	weightPinchOut          = 4
+	weightHome              = 3
+	weightOpenNotifications = 3
+	weightClearText         = 2
+	weightRotateDevice      = 2
 )
 
 // RunConfig holds options for a monkey run.
@@ -202,16 +208,23 @@ func (m *Monkey) selectAction(elements []device.UIElement, eventNum int) Action 
 		a.Duration = 500 + r.Intn(500)
 	case Type:
 		a.Text = randomTypingSample()
+	case PinchIn:
+		a.Scale = 0.5 + r.Float64()*0.5
+	case PinchOut:
+		a.Scale = 1.5 + r.Float64()*1.5
 	}
 	return a
 }
 
 func (m *Monkey) weightedAction(r *rand.Rand, el *device.UIElement) ActionType {
-	// Smart: prefer tap/double/long for clickable, type for input, swipe for scrollable
 	if el != nil {
 		if el.InputField {
-			if r.Intn(100) < 60 {
+			roll := r.Intn(100)
+			if roll < 50 {
 				return Type
+			}
+			if roll < 65 {
+				return ClearText
 			}
 		}
 		if el.Scrollable {
@@ -219,33 +232,33 @@ func (m *Monkey) weightedAction(r *rand.Rand, el *device.UIElement) ActionType {
 				return Swipe
 			}
 		}
-		if el.Clickable {
-			// keep normal weights
-		}
+	}
+
+	type weightedEntry struct {
+		action ActionType
+		weight int
+	}
+	table := []weightedEntry{
+		{Tap, weightTap},
+		{DoubleTap, weightDoubleTap},
+		{LongPress, weightLongPress},
+		{Swipe, weightSwipe},
+		{Scroll, weightScroll},
+		{Type, weightType},
+		{Back, weightBack},
+		{PinchIn, weightPinchIn},
+		{PinchOut, weightPinchOut},
+		{Home, weightHome},
+		{OpenNotifications, weightOpenNotifications},
+		{ClearText, weightClearText},
+		{RotateDevice, weightRotateDevice},
 	}
 	roll := r.Intn(100)
-	if roll < weightTap {
-		return Tap
+	for _, e := range table {
+		if roll < e.weight {
+			return e.action
+		}
+		roll -= e.weight
 	}
-	roll -= weightTap
-	if roll < weightDoubleTap {
-		return DoubleTap
-	}
-	roll -= weightDoubleTap
-	if roll < weightLongPress {
-		return LongPress
-	}
-	roll -= weightLongPress
-	if roll < weightSwipe {
-		return Swipe
-	}
-	roll -= weightSwipe
-	if roll < weightScroll {
-		return Scroll
-	}
-	roll -= weightScroll
-	if roll < weightType {
-		return Type
-	}
-	return Back
+	return Tap
 }

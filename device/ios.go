@@ -131,6 +131,57 @@ func (d *IOSDevice) Back(ctx context.Context) error {
 	return err
 }
 
+func (d *IOSDevice) Home(ctx context.Context) error {
+	_, err := d.wda(ctx, "POST", "/wda/homescreen", nil)
+	return err
+}
+
+func (d *IOSDevice) PinchIn(ctx context.Context, x, y int, scale float64) error {
+	if scale <= 0 {
+		scale = 0.5
+	}
+	payload := fmt.Sprintf(`{"x":%d,"y":%d,"scale":%f,"velocity":-2.0}`, x, y, scale)
+	_, err := d.wda(ctx, "POST", "/wda/element/0/pinch", []byte(payload))
+	return err
+}
+
+func (d *IOSDevice) PinchOut(ctx context.Context, x, y int, scale float64) error {
+	if scale <= 0 {
+		scale = 2.0
+	}
+	payload := fmt.Sprintf(`{"x":%d,"y":%d,"scale":%f,"velocity":2.0}`, x, y, scale)
+	_, err := d.wda(ctx, "POST", "/wda/element/0/pinch", []byte(payload))
+	return err
+}
+
+func (d *IOSDevice) OpenNotifications(ctx context.Context) error {
+	// Swipe down from the very top of the screen
+	return d.Swipe(ctx, 200, 5, 200, 400)
+}
+
+func (d *IOSDevice) ClearText(ctx context.Context) error {
+	// Select all (Cmd+A equivalent via WDA) then delete
+	selectAll := `{"actions":[{"action":"select","options":{"startIndex":0,"endIndex":99999}}]}`
+	d.wda(ctx, "POST", "/wda/element/0/clear", []byte(selectAll))
+	_, err := d.wda(ctx, "POST", "/wda/keys", []byte(`["\u0008"]`))
+	return err
+}
+
+func (d *IOSDevice) RotateDevice(ctx context.Context) error {
+	target := "booted"
+	if d.udid != "" {
+		target = d.udid
+	}
+	// Try reading current orientation; toggle between portrait and landscape
+	out, _ := exec.CommandContext(ctx, "xcrun", "simctl", "orientation", target).Output()
+	current := strings.TrimSpace(string(out))
+	next := "LandscapeLeft"
+	if strings.Contains(strings.ToLower(current), "landscape") {
+		next = "Portrait"
+	}
+	return exec.CommandContext(ctx, "xcrun", "simctl", "orientation", target, next).Run()
+}
+
 // --- Inspector ---
 
 func (d *IOSDevice) GetUIHierarchy(ctx context.Context) ([]UIElement, error) {

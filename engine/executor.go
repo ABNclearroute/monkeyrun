@@ -71,6 +71,34 @@ func execute(ctx context.Context, dev device.Device, action Action) error {
 		return dev.Type(ctx, text)
 	case Back:
 		return dev.Back(ctx)
+	case Home:
+		return dev.Home(ctx)
+	case PinchIn:
+		x, y := action.X, action.Y
+		if action.Element != nil {
+			x, y = randomPointInElement(action.Element)
+		}
+		scale := action.Scale
+		if scale <= 0 {
+			scale = 0.5 + rand.Float64()*0.5
+		}
+		return dev.PinchIn(ctx, x, y, scale)
+	case PinchOut:
+		x, y := action.X, action.Y
+		if action.Element != nil {
+			x, y = randomPointInElement(action.Element)
+		}
+		scale := action.Scale
+		if scale <= 0 {
+			scale = 1.5 + rand.Float64()*1.5
+		}
+		return dev.PinchOut(ctx, x, y, scale)
+	case OpenNotifications:
+		return dev.OpenNotifications(ctx)
+	case ClearText:
+		return dev.ClearText(ctx)
+	case RotateDevice:
+		return dev.RotateDevice(ctx)
 	default:
 		return dev.Tap(ctx, action.X, action.Y)
 	}
