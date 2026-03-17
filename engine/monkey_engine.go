@@ -37,6 +37,8 @@ type RunConfig struct {
 	HierarchyEvery int
 	// StopOnCrash cancels the run when a fatal crash is detected (default: true).
 	StopOnCrash bool
+	// AllowedActions restricts the action set. nil/empty means all actions.
+	AllowedActions []ActionType
 	// Screenshot strategy configuration.
 	ScreenshotCfg ScreenshotConfig
 	OnEvent     func(EventLog)
@@ -67,19 +69,31 @@ type CrashInfo struct {
 
 // Monkey runs the chaos test loop.
 type Monkey struct {
-	dev          device.Device
-	config       RunConfig
-	rand         *rand.Rand
-	mu           sync.Mutex
+	dev           device.Device
+	config        RunConfig
+	rand          *rand.Rand
+	mu            sync.Mutex
 	screenshotter *Screenshotter
+	allowedSet    map[ActionType]bool
 }
 
 // NewMonkey creates a monkey engine for the given device.
 func NewMonkey(dev device.Device, config RunConfig) *Monkey {
+	allowed := make(map[ActionType]bool)
+	if len(config.AllowedActions) > 0 {
+		for _, a := range config.AllowedActions {
+			allowed[a] = true
+		}
+	} else {
+		for _, a := range AllActionTypes() {
+			allowed[a] = true
+		}
+	}
 	return &Monkey{
-		dev:    dev,
-		config: config,
-		rand:   rand.New(rand.NewSource(time.Now().UnixNano())),
+		dev:        dev,
+		config:     config,
+		rand:       rand.New(rand.NewSource(time.Now().UnixNano())),
+		allowedSet: allowed,
 	}
 }
 
@@ -215,48 +229,66 @@ func (m *Monkey) selectAction(elements []device.UIElement, eventNum int) Action 
 	return a
 }
 
+// defaultWeights maps each action to its base weight (sums to 100 for the full set).
+var defaultWeights = map[ActionType]int{
+	Tap:          weightTap,
+	DoubleTap:    weightDoubleTap,
+	LongPress:    weightLongPress,
+	Swipe:        weightSwipe,
+	Scroll:       weightScroll,
+	Type:         weightType,
+	Back:         weightBack,
+	PinchIn:      weightPinchIn,
+	PinchOut:     weightPinchOut,
+	Home:         weightHome,
+	ClearText:    weightClearText,
+	RotateDevice: weightRotateDevice,
+}
+
 func (m *Monkey) weightedAction(r *rand.Rand, el *device.UIElement) ActionType {
+	// Smart context overrides — only if the action is allowed.
 	if el != nil {
 		if el.InputField {
 			roll := r.Intn(100)
-			if roll < 50 {
+			if roll < 50 && m.allowedSet[Type] {
 				return Type
 			}
-			if roll < 65 {
+			if roll < 65 && m.allowedSet[ClearText] {
 				return ClearText
 			}
 		}
 		if el.Scrollable {
-			if r.Intn(100) < 50 {
+			if r.Intn(100) < 50 && m.allowedSet[Swipe] {
 				return Swipe
 			}
 		}
 	}
 
+	// Build filtered weight table and compute total for normalization.
 	type weightedEntry struct {
 		action ActionType
 		weight int
 	}
-	table := []weightedEntry{
-		{Tap, weightTap},
-		{DoubleTap, weightDoubleTap},
-		{LongPress, weightLongPress},
-		{Swipe, weightSwipe},
-		{Scroll, weightScroll},
-		{Type, weightType},
-		{Back, weightBack},
-		{PinchIn, weightPinchIn},
-		{PinchOut, weightPinchOut},
-		{Home, weightHome},
-		{ClearText, weightClearText},
-		{RotateDevice, weightRotateDevice},
+	var table []weightedEntry
+	total := 0
+	for _, a := range AllActionTypes() {
+		if !m.allowedSet[a] {
+			continue
+		}
+		w := defaultWeights[a]
+		table = append(table, weightedEntry{a, w})
+		total += w
 	}
-	roll := r.Intn(100)
+	if total == 0 {
+		return Tap
+	}
+
+	roll := r.Intn(total)
 	for _, e := range table {
 		if roll < e.weight {
 			return e.action
 		}
 		roll -= e.weight
 	}
-	return Tap
+	return table[0].action
 }

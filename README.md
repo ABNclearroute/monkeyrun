@@ -141,6 +141,9 @@ monkeyrun report --path report
 
 # Replay events from a previous run
 monkeyrun replay --report report --platform android --events 100
+
+# Run with specific actions only
+monkeyrun run --platform android --app com.demo.app --events 2000 --actions tap,swipe,type
 ```
 
 ## Commands
@@ -167,6 +170,7 @@ monkeyrun replay --report report --platform android --events 100
 - `--stop-on-crash`: Stop execution immediately on fatal crash (default: `true`). Use `--stop-on-crash=false` to keep going.
 - `--screenshot-mode`: Screenshot capture strategy (default: `balanced`). Options: `minimal`, `balanced`, `full`.
 - `--screenshot-interval`: Capture a screenshot every N events in balanced/full mode (default: `25`).
+- `--actions`: Comma-separated list of actions to use (default: all). Example: `--actions tap,swipe,type`. Invalid names produce a clear error.
 
 ## Screenshot strategy
 
@@ -195,7 +199,9 @@ monkeyrun run --platform android --app com.demo.app --events 200 --screenshot-mo
 
 ## Actions
 
-monkeyrun supports 13 gesture and navigation actions, selected randomly with weighted probabilities. Smart selection prefers contextually appropriate actions (e.g. `type`/`clearText` for input fields, `swipe` for scrollable elements).
+monkeyrun supports 12 gesture and navigation actions, selected randomly with weighted probabilities. Smart selection prefers contextually appropriate actions (e.g. `type`/`clearText` for input fields, `swipe` for scrollable elements).
+
+Use `--actions tap,swipe,...` to restrict the set. Weights are automatically redistributed proportionally among the selected actions.
 
 | Action | Weight | Description |
 |--------|--------|-------------|

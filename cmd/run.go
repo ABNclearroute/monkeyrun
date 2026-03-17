@@ -32,6 +32,7 @@ var (
 	runStopOnCrash         bool
 	runScreenshotMode      string
 	runScreenshotInterval  int
+	runActions             string
 )
 
 var runCmd = &cobra.Command{
@@ -56,6 +57,7 @@ func init() {
 	runCmd.Flags().BoolVar(&runStopOnCrash, "stop-on-crash", true, "Stop execution on fatal crash")
 	runCmd.Flags().StringVar(&runScreenshotMode, "screenshot-mode", "balanced", "Screenshot strategy: minimal, balanced, or full")
 	runCmd.Flags().IntVar(&runScreenshotInterval, "screenshot-interval", 25, "Capture screenshot every N events (balanced/full mode)")
+	runCmd.Flags().StringVar(&runActions, "actions", "", "Comma-separated list of actions to use (default: all). Valid: "+engine.ActionNames())
 	runCmd.MarkFlagRequired("platform")
 }
 
@@ -112,6 +114,20 @@ func runRun(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(os.Stderr, "Log stream failed:", logStreamErr)
 	}
 
+	var allowedActions []engine.ActionType
+	if runActions != "" {
+		var parseErr error
+		allowedActions, parseErr = engine.ParseActions(runActions)
+		if parseErr != nil {
+			return parseErr
+		}
+		names := make([]string, len(allowedActions))
+		for i, a := range allowedActions {
+			names[i] = string(a)
+		}
+		fmt.Printf("Selected actions: %s\n", strings.Join(names, ", "))
+	}
+
 	ssMode := engine.ScreenshotBalanced
 	switch strings.ToLower(runScreenshotMode) {
 	case "minimal":
@@ -128,6 +144,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		DelayMaxMs:     runDelayMax,
 		HierarchyEvery: runHierarchyEvery,
 		StopOnCrash:    runStopOnCrash,
+		AllowedActions: allowedActions,
 		ScreenshotCfg: engine.ScreenshotConfig{
 			Mode:     ssMode,
 			Interval: runScreenshotInterval,
