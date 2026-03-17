@@ -208,13 +208,18 @@ func runRun(cmd *cobra.Command, args []string) error {
 		}()
 	}
 	start := time.Now()
-	n, crashCount, runErr := monkey.Run(ctx)
+	n, _, runErr := monkey.Run(ctx)
 	elapsed := time.Since(start)
+
+	// Use the crash list from the log-stream goroutine as the source of truth
+	eventsMu.Lock()
+	totalCrashes := len(crashes)
+	eventsMu.Unlock()
 
 	rep := report.Report{
 		Dir: reportDir, Events: events, Crashes: crashes,
 		StartTime: start, EndTime: time.Now(),
-		TotalEvents: n, TotalCrashes: crashCount,
+		TotalEvents: n, TotalCrashes: totalCrashes,
 		LogLines: det.LastLines(),
 		Platform: info.Platform, DeviceName: info.Name,
 	}
@@ -239,6 +244,12 @@ func runRun(cmd *cobra.Command, args []string) error {
 	_ = rep.WriteLogs()
 	_ = rep.WriteHTML()
 
-	fmt.Printf("Done: %d events in %v, %d crashes. Report: %s\n", n, elapsed, crashCount, reportDir)
+	fmt.Printf("Done: %d events in %v, %d crashes. Report: %s\n", n, elapsed, totalCrashes, reportDir)
+
+	// Don't propagate context.Canceled as an error — it's expected when
+	// stopping on crash or user interrupt (Ctrl+C).
+	if runErr == context.Canceled {
+		return nil
+	}
 	return runErr
 }
