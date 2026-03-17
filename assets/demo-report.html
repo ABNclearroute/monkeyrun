@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Monkeyrun Report</title>
+<style>
+:root{--bg:#1a1a2e;--surface:#16213e;--surface2:#0f3460;--border:#1a3a5c;--text:#e4e4e7;--text2:#94a3b8;--accent:#e94560;--green:#22c55e;--red:#ef4444;--yellow:#eab308;--blue:#3b82f6;--purple:#a855f7;--cyan:#06b6d4;--orange:#f97316;--radius:8px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh}
+.sidebar{width:260px;background:var(--surface);border-right:1px solid var(--border);padding:1.25rem;display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;overflow-y:auto}
+.sidebar h1{font-size:1rem;font-weight:700;letter-spacing:-.02em;margin-bottom:.25rem}
+.sidebar .subtitle{font-size:.7rem;color:var(--text2);margin-bottom:1.5rem;text-transform:uppercase;letter-spacing:.05em}
+.nav-section{margin-bottom:1.25rem}
+.nav-section h3{font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);margin-bottom:.5rem;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:.5rem;padding:.45rem .6rem;border-radius:var(--radius);cursor:pointer;font-size:.8rem;color:var(--text2);transition:all .15s;text-decoration:none}
+.nav-item:hover,.nav-item.active{background:var(--surface2);color:var(--text)}
+.nav-item .count{margin-left:auto;background:var(--surface2);padding:.1rem .45rem;border-radius:99px;font-size:.65rem;font-weight:600}
+.nav-item .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot-green{background:var(--green)}.dot-red{background:var(--red)}.dot-yellow{background:var(--yellow)}
+.main{margin-left:260px;flex:1;padding:1.5rem 2rem;max-width:1100px}
+.header{margin-bottom:1.75rem}
+.header h2{font-size:1.35rem;font-weight:700;margin-bottom:.35rem}
+.header .meta{font-size:.75rem;color:var(--text2);display:flex;gap:1rem;flex-wrap:wrap}
+.meta-chip{background:var(--surface);padding:.2rem .6rem;border-radius:99px;border:1px solid var(--border)}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:.75rem;margin-bottom:1.75rem}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem}
+.stat .val{font-size:1.6rem;font-weight:700;letter-spacing:-.02em}
+.stat .lbl{font-size:.65rem;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-top:.15rem}
+.stat.green .val{color:var(--green)}.stat.red .val{color:var(--red)}.stat.blue .val{color:var(--blue)}
+.progress-bar{height:6px;background:var(--surface2);border-radius:99px;overflow:hidden;margin-bottom:1.75rem}
+.progress-fill{height:100%;border-radius:99px;transition:width .3s}
+.section{margin-bottom:2rem}
+.section h3{font-size:.9rem;font-weight:600;margin-bottom:.75rem;display:flex;align-items:center;gap:.5rem}
+.section h3 .badge{font-size:.65rem;background:var(--surface2);padding:.15rem .5rem;border-radius:99px;color:var(--text2);font-weight:500}
+.filter-bar{display:flex;gap:.4rem;margin-bottom:.75rem;flex-wrap:wrap}
+.filter-btn{padding:.3rem .7rem;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:.7rem;cursor:pointer;transition:all .15s}
+.filter-btn:hover,.filter-btn.active{background:var(--surface2);color:var(--text);border-color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:.78rem}
+thead th{text-align:left;padding:.55rem .65rem;color:var(--text2);font-weight:500;font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg)}
+tbody td{padding:.5rem .65rem;border-bottom:1px solid rgba(255,255,255,.04)}
+tbody tr{transition:background .1s}
+tbody tr:hover{background:rgba(255,255,255,.03)}
+.action-badge{display:inline-block;padding:.15rem .5rem;border-radius:99px;font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.badge-tap{background:rgba(59,130,246,.15);color:var(--blue)}
+.badge-doubleTap{background:rgba(168,85,247,.15);color:var(--purple)}
+.badge-longPress{background:rgba(249,115,22,.15);color:var(--orange)}
+.badge-swipe,.badge-scroll{background:rgba(6,182,212,.15);color:var(--cyan)}
+.badge-type,.badge-clearText{background:rgba(234,179,8,.15);color:var(--yellow)}
+.badge-back,.badge-home{background:rgba(148,163,184,.15);color:var(--text2)}
+.badge-pinchIn,.badge-pinchOut{background:rgba(34,197,94,.15);color:var(--green)}
+
+.badge-rotateDevice{background:rgba(249,115,22,.15);color:var(--orange)}
+.badge-error,.badge-hierarchy{background:rgba(239,68,68,.15);color:var(--red)}
+.status-pass{color:var(--green);font-weight:600}.status-fail{color:var(--red);font-weight:600}
+.element-name{color:var(--text2);font-family:'SF Mono',Consolas,monospace;font-size:.72rem}
+.timeline-wrap{max-height:520px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius)}
+.crash-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--red);border-radius:var(--radius);padding:.85rem 1rem;margin-bottom:.6rem}
+.crash-card .crash-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem}
+.crash-card .crash-event{font-size:.7rem;background:rgba(239,68,68,.15);color:var(--red);padding:.1rem .5rem;border-radius:99px;font-weight:600}
+.crash-card .crash-msg{font-size:.75rem;color:var(--text2);font-family:'SF Mono',Consolas,monospace;word-break:break-all}
+.screenshots-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.6rem}
+.screenshot-card{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:transform .15s}
+.screenshot-card:hover{transform:scale(1.02)}
+.screenshot-card img{width:100%;display:block}
+.screenshot-card .cap{padding:.35rem .5rem;font-size:.65rem;color:var(--text2);background:var(--surface)}
+pre.log-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;font-size:.7rem;color:var(--text2);max-height:320px;overflow:auto;white-space:pre-wrap;word-break:break-all;font-family:'SF Mono',Consolas,monospace;line-height:1.6}
+.empty{color:var(--text2);font-size:.8rem;font-style:italic;padding:1rem}
+@media(max-width:768px){.sidebar{display:none}.main{margin-left:0}}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <h1>Monkeyrun</h1>
+  <div class="subtitle">Chaos Test Report</div>
+  <nav>
+    <div class="nav-section">
+      <h3>Overview</h3>
+      <a href="#summary" class="nav-item active"><div class="dot dot-green"></div>Summary</a>
+      <a href="#timeline" class="nav-item"><div class="dot dot-yellow"></div>Timeline<span class="count">20</span></a>
+    </div>
+    <div class="nav-section">
+      <h3>Results</h3>
+      <a href="#crashes" class="nav-item"><div class="dot dot-red"></div>Crashes<span class="count">2</span></a>
+      <a href="#screenshots" class="nav-item">Screenshots<span class="count">4</span></a>
+      <a href="#logs" class="nav-item">Logs</a>
+    </div>
+    <div class="nav-section">
+      <h3>Actions</h3><div class="nav-item"><span class="action-badge badge-tap">tap</span><span class="count">4</span></div><div class="nav-item"><span class="action-badge badge-longPress">longPress</span><span class="count">4</span></div><div class="nav-item"><span class="action-badge badge-swipe">swipe</span><span class="count">3</span></div><div class="nav-item"><span class="action-badge badge-scroll">scroll</span><span class="count">2</span></div><div class="nav-item"><span class="action-badge badge-type">type</span><span class="count">1</span></div><div class="nav-item"><span class="action-badge badge-back">back</span><span class="count">1</span></div><div class="nav-item"><span class="action-badge badge-pinchIn">pinchIn</span><span class="count">1</span></div><div class="nav-item"><span class="action-badge badge-pinchOut">pinchOut</span><span class="count">3</span></div><div class="nav-item"><span class="action-badge badge-clearText">clearText</span><span class="count">1</span></div>
+    </div>
+  </nav>
+</aside>
+<main class="main">
+  <div class="header" id="summary">
+    <h2>Test Run Results</h2>
+    <div class="meta"><span class="meta-chip">sdk_gphone64_arm64</span><span class="meta-chip">android</span><span class="meta-chip">13s</span><span class="meta-chip">Mar 17, 2026 18:49:07</span></div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="val">20</div><div class="lbl">Total Events</div></div>
+    <div class="stat green"><div class="val">20</div><div class="lbl">Passed</div></div>
+    <div class="stat red"><div class="val">0</div><div class="lbl">Failed</div></div>
+    <div class="stat red"><div class="val">2</div><div class="lbl">Crashes</div></div>
+    <div class="stat blue"><div class="val">100%</div><div class="lbl">Pass Rate</div></div>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width:100.0%;background:var(--green)"></div></div>
+
+  <div class="section" id="timeline">
+    <h3>Timeline <span class="badge">20 events</span></h3>
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="filterRows('all')">All</button>
+      <button class="filter-btn" onclick="filterRows('ok')">Passed</button>
+      <button class="filter-btn" onclick="filterRows('fail')">Failed</button><button class="filter-btn" onclick="filterRows('tap')">tap</button><button class="filter-btn" onclick="filterRows('longPress')">longPress</button><button class="filter-btn" onclick="filterRows('swipe')">swipe</button><button class="filter-btn" onclick="filterRows('scroll')">scroll</button><button class="filter-btn" onclick="filterRows('type')">type</button><button class="filter-btn" onclick="filterRows('back')">back</button><button class="filter-btn" onclick="filterRows('pinchIn')">pinchIn</button><button class="filter-btn" onclick="filterRows('pinchOut')">pinchOut</button><button class="filter-btn" onclick="filterRows('clearText')">clearText</button>
+    </div>
+    <div class="timeline-wrap">
+      <table id="events-table">
+        <thead><tr><th>#</th><th>Time</th><th>Action</th><th>Element</th><th>Coords</th><th>Status</th><th></th></tr></thead>
+        <tbody><tr data-status="ok" data-action="tap"><td>1</td><td>18:48:57</td><td><span class="action-badge badge-tap">tap</span></td><td class="element-name">com.android.settings:id/settings_homepage_container</td><td class="element-name">720,1590</td><td class="status-pass">passed</td><td><a href="screenshots/monkeyrun_evt0001_tap_com_android_settings_id_settin.png" title="View screenshot" style="color:var(--cyan);text-decoration:none">&#128247;</a></td></tr><tr data-status="ok" data-action="pinchOut"><td>2</td><td>18:48:57</td><td><span class="action-badge badge-pinchOut">pinchOut</span></td><td class="element-name">com.android.settings:id/settings_homepage_container</td><td class="element-name">720,1590</td><td class="status-pass">passed</td><td></td></tr><tr data-status="ok" data-action="pinchOut"><td>3</td><td>18:48:58</td><td><span class="action-badge badge-pinchOut">pinchOut</span></td><td class="element-name">android:id/list_container</td><td class="element-name">720,2017</td><td class="status-pass">passed</td><td></td></tr><tr data-status="ok" data-action="type"><td>4</td><td>18:48:58</td><td><span class="action-badge badge-type">type</span></td><td class="element-name">Connected devices</td><td class="element-name">547,1427</td><td class="status-pass">passed</td><td></td></tr><tr data-status="ok" data-action="longPress"><td>5</td><td>18:48:59</td><td><span class="action-badge badge-longPress">longPress</span></td><td class="element-name">Connected devices</td><td class="element-name">547,1427</td><td class="status-pass">passed</td><td></td></tr><tr data-status="ok" data-action="swipe"><td>6</td><td>18:48:59</td><td><span class="action-badge badge-swipe">swipe</span></td><td class="element-name">android:id/icon</td><td class="element-name">154,2077</td><td class="status-pass">passed</td><td></td></tr><tr data-status="ok" data-action="longPress"><td>7</td><td>18:49:00</td><td><span class="action-badge badge-longPress">longPress</span></td><td class="element-name">Assistant, recent apps, default apps</td><td class="element-name">642,1815</td><td class="status-pass">passed</td><td></td></tr><tr data-status="ok" data-action="pinchOut"><td>8</td><td>18:49:00</td><td><span class="action-badge badge-pinchOut">pinchOut</span></td><td class="element-name">Volume, haptics, Do Not Disturb</td><td class="element-name">597,3025</td><td class="status-pass">passed</td><td></td></tr><tr data-status="ok" data-action="clearText"><td>9</td><td>18:49:01</td><td><span class="action-badge badge-clearText">clearText</span></td><td class="element-name">com.android.settings:id/app_bar</td><td class="element-name">720,571</td><td class="status-pass">passed</td><td></td></tr><tr data-status="ok" data-action="longPress"><td>10</td><td>18:49:02</td><td><span class="action-badge badge-longPress">longPress</span></td><td class="element-name">com.android.settings:id/text_frame</td><td class="element-name">818,1768</td><td class="status-pass">passed</td><td></td></tr><tr data-status="ok" data-action="swipe"><td>11</td><td>18:49:04</td><td><span class="action-badge badge-swipe">swipe</span></td><td class="element-name">com.google.android.apps.nexuslauncher:id/overview_panel</td><td class="element-name">720,1560</td><td class="status-pass">passed</td><td><a href="screenshots/monkeyrun_evt0011_swipe_com_google_android_apps_nexusl.png" title="View screenshot" style="color:var(--cyan);text-decoration:none">&#128247;</a></td></tr><tr data-status="ok" data-action="swipe"><td>12</td><td>18:49:05</td><td><span class="action-badge badge-swipe">swipe</span></td><td class="element-name">com.google.android.apps.nexuslauncher:id/overview_actions_view</td><td class="element-name">720,2856</td><td class="status-pass">passed</td><td></td></tr><tr data-status="ok" data-action="pinchIn"><td>13</td><td>18:49:05</td><td><span class="action-badge badge-pinchIn">pinchIn</span></td><td class="element-name">com.google.android.apps.nexuslauncher:id/launcher</td><td class="element-name">720,1560</td><td class="status-pass">passed</td><td></td></tr><tr data-status="ok" data-action="scroll"><td>14</td><td>18:49:06</td><td><span class="action-badge badge-scroll">scroll</span></td><td class="element-name">com.google.android.apps.nexuslauncher:id/drag_layer</td><td class="element-name">720,1560</td><td class="status-pass">passed</td><td></td></tr><tr data-status="ok" data-action="back"><td>15</td><td>18:49:06</td><td><span class="action-badge badge-back">back</span></td><td class="element-name">android:id/content</td><td class="element-name">720,1560</td><td class="status-pass">passed</td><td></td></tr><tr data-status="ok" data-action="longPress"><td>16</td><td>18:49:07</td><td><span class="action-badge badge-longPress">longPress</span></td><td class="element-name">com.google.android.apps.nexuslauncher:id/drag_layer</td><td class="element-name">720,1560</td><td class="status-pass">passed</td><td></td></tr><tr data-status="ok" data-action="tap"><td>17</td><td>18:49:07</td><td><span class="action-badge badge-tap">tap</span></td><td class="element-name">com.google.android.apps.nexuslauncher:id/overview_panel</td><td class="element-name">720,1560</td><td class="status-pass">passed</td><td></td></tr><tr data-status="ok" data-action="scroll"><td>18</td><td>18:49:07</td><td><span class="action-badge badge-scroll">scroll</span></td><td class="element-name">com.google.android.apps.nexuslauncher:id/scrim_view</td><td class="element-name">720,1560</td><td class="status-pass">passed</td><td></td></tr><tr data-status="ok" data-action="tap"><td>19</td><td>18:49:07</td><td><span class="action-badge badge-tap">tap</span></td><td class="element-name">Home</td><td class="element-name">720,1590</td><td class="status-pass">passed</td><td></td></tr><tr data-status="ok" data-action="tap"><td>20</td><td>18:49:07</td><td><span class="action-badge badge-tap">tap</span></td><td class="element-name">com.google.android.apps.nexuslauncher:id/overview_actions_view</td><td class="element-name">720,2856</td><td class="status-pass">passed</td><td></td></tr></tbody></table>
+    </div>
+  </div>
+
+  <div class="section" id="crashes">
+    <h3>Crashes <span class="badge">2</span></h3><div class="crash-card"><div class="crash-head"><span class="crash-event">Event #0</span></div><div class="crash-msg">03-17 18:48:53.893 D/AndroidRuntime(31880): &gt;&gt;&gt;&gt;&gt;&gt; START com.android.internal.os.RuntimeInit uid 2000 &lt;&lt;&lt;&lt;&lt;&lt;</div></div><div class="crash-card"><div class="crash-head"><span class="crash-event">Event #10</span></div><div class="crash-msg">03-17 18:49:01.467 D/AndroidRuntime(32014): &gt;&gt;&gt;&gt;&gt;&gt; START com.android.internal.os.RuntimeInit uid 2000 &lt;&lt;&lt;&lt;&lt;&lt;</div></div></div>
+
+  <div class="section" id="screenshots">
+    <h3>Screenshots <span class="badge">4</span></h3><div class="screenshots-grid"><div class="screenshot-card"><a href="screenshots/monkeyrun_crash_evt0000.png"><img src="screenshots/monkeyrun_crash_evt0000.png" loading="lazy"></a><div class="cap">monkeyrun_crash_evt0000.png</div></div><div class="screenshot-card"><a href="screenshots/monkeyrun_crash_evt0010.png"><img src="screenshots/monkeyrun_crash_evt0010.png" loading="lazy"></a><div class="cap">monkeyrun_crash_evt0010.png</div></div><div class="screenshot-card"><a href="screenshots/monkeyrun_evt0001_tap_com_android_settings_id_settin.png"><img src="screenshots/monkeyrun_evt0001_tap_com_android_settings_id_settin.png" loading="lazy"></a><div class="cap">monkeyrun_evt0001_tap_com_android_settings_id_settin.png</div></div><div class="screenshot-card"><a href="screenshots/monkeyrun_evt0011_swipe_com_google_android_apps_nexusl.png"><img src="screenshots/monkeyrun_evt0011_swipe_com_google_android_apps_nexusl.png" loading="lazy"></a><div class="cap">monkeyrun_evt0011_swipe_com_google_android_apps_nexusl.png</div></div></div></div>
+
+  <div class="section" id="logs">
+    <h3>Logs</h3><pre class="log-box">03-17 18:49:04.340 I/InputDispatcher(  560):     MotionEvent, age=148ms
+03-17 18:49:04.340 I/InputDispatcher(  560):     MotionEvent, age=131ms
+03-17 18:49:04.340 I/InputDispatcher(  560):     MotionEvent, age=112ms
+03-17 18:49:04.340 I/InputDispatcher(  560):     MotionEvent, age=98ms
+03-17 18:49:04.340 I/InputDispatcher(  560):     MotionEvent, age=80ms
+03-17 18:49:04.340 I/InputDispatcher(  560):     MotionEvent, age=4ms
+03-17 18:49:04.340 I/InputDispatcher(  560):     MotionEvent, age=3ms
+03-17 18:49:04.340 I/InputDispatcher(  560):   PendingEvent:
+03-17 18:49:04.340 I/InputDispatcher(  560):     MotionEvent, age=2ms
+03-17 18:49:04.340 I/InputDispatcher(  560):   InboundQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):   CommandQueue: size=1
+03-17 18:49:04.340 I/InputDispatcher(  560):   Connections:
+03-17 18:49:04.340 I/InputDispatcher(  560):     630: channelName='687aeaf com.android.settings/com.android.settings.SubSettings (server)', status=NORMAL, monitor=false, responsive=true
+03-17 18:49:04.340 I/InputDispatcher(  560):       OutboundQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       WaitQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):     628: channelName='2e1dd0b com.android.settings/com.android.settings.Settings (server)', status=NORMAL, monitor=false, responsive=true
+03-17 18:49:04.340 I/InputDispatcher(  560):       OutboundQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       WaitQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):     615: channelName='605faa InputMethod (server)', status=NORMAL, monitor=false, responsive=true
+03-17 18:49:04.340 I/InputDispatcher(  560):       OutboundQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       WaitQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):     589: channelName='stylus-handwriting-event-receiver-0 (server)', status=NORMAL, monitor=false, responsive=true
+03-17 18:49:04.340 I/InputDispatcher(  560):       OutboundQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       WaitQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):     559: channelName='dbed2d1 com.android.settings/com.android.settings.spa.SpaActivity (server)', status=NORMAL, monitor=false, responsive=true
+03-17 18:49:04.340 I/InputDispatcher(  560):       OutboundQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       WaitQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):     637: channelName='fa6dfb1 com.android.settings/com.android.settings.SubSettings (server)', status=NORMAL, monitor=false, responsive=true
+03-17 18:49:04.340 I/InputDispatcher(  560):       OutboundQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       WaitQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):     636: channelName='[Gesture Monitor] minus-one (server)', status=NORMAL, monitor=false, responsive=true
+03-17 18:49:04.340 I/InputDispatcher(  560):       OutboundQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       WaitQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):     536: channelName='567a65a com.google.android.apps.nexuslauncher/com.google.android.apps.nexuslauncher.NexusLauncherActivity (server)', status=NORMAL, monitor=false, responsive=true
+03-17 18:49:04.340 I/InputDispatcher(  560):       OutboundQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       WaitQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):     506: channelName='7363574 ScreenDecorOverlayBottom (server)', status=NORMAL, monitor=false, responsive=true
+03-17 18:49:04.340 I/InputDispatcher(  560):       OutboundQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       WaitQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):     582: channelName='recents_animation_input_consumer (server)', status=NORMAL, monitor=false, responsive=true
+03-17 18:49:04.340 I/InputDispatcher(  560):       OutboundQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       WaitQueue: length=1
+03-17 18:49:04.340 I/InputDispatcher(  560):         MotionEvent, seq=387866, targetFlags=FOREGROUND | SPLIT, age=3ms, wait=2ms
+03-17 18:49:04.340 I/InputDispatcher(  560):       InputState: mMotionMementos: {deviceId= -1, hovering=0}, 
+03-17 18:49:04.340 I/InputDispatcher(  560):     513: channelName='[Gesture Monitor] swipe-up (server)', status=NORMAL, monitor=false, responsive=true
+03-17 18:49:04.340 I/InputDispatcher(  560):       OutboundQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       WaitQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       InputState: mMotionMementos: {deviceId= -1, hovering=0}, 
+03-17 18:49:04.340 I/InputDispatcher(  560):     510: channelName='93d22e3 com.android.systemui.wallpapers.ImageWallpaper (server)', status=NORMAL, monitor=false, responsive=true
+03-17 18:49:04.340 I/InputDispatcher(  560):       OutboundQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       WaitQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):     581: channelName='7a4be54 Taskbar (server)', status=NORMAL, monitor=false, responsive=true
+03-17 18:49:04.340 I/InputDispatcher(  560):       OutboundQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       WaitQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):     522: channelName='f4c2a7b StatusBar (server)', status=NORMAL, monitor=false, responsive=true
+03-17 18:49:04.340 I/InputDispatcher(  560):       OutboundQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       WaitQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):     515: channelName='[Gesture Monitor] edge-swipe (server)', status=NORMAL, monitor=false, responsive=true
+03-17 18:49:04.340 I/InputDispatcher(  560):       OutboundQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       WaitQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       InputState: mMotionMementos: {deviceId= -1, hovering=0}, 
+03-17 18:49:04.340 I/InputDispatcher(  560):     517: channelName='16198a8 EdgeBackGestureHandler0 (server)', status=NORMAL, monitor=false, responsive=true
+03-17 18:49:04.340 I/InputDispatcher(  560):       OutboundQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       WaitQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):     503: channelName='44096f3 ScreenDecorOverlay (server)', status=NORMAL, monitor=false, responsive=true
+03-17 18:49:04.340 I/InputDispatcher(  560):       OutboundQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       WaitQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):     524: channelName='308a267 NotificationShade (server)', status=NORMAL, monitor=false, responsive=true
+03-17 18:49:04.340 I/InputDispatcher(  560):       OutboundQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       WaitQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):     439: channelName='fb8fa83 ShellDropTarget (server)', status=NORMAL, monitor=false, responsive=true
+03-17 18:49:04.340 I/InputDispatcher(  560):       OutboundQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       WaitQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):     224: channelName='PointerEventDispatcher0 (server)', status=NORMAL, monitor=true, responsive=true
+03-17 18:49:04.340 I/InputDispatcher(  560):       OutboundQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       WaitQueue: &lt;empty&gt;
+03-17 18:49:04.340 I/InputDispatcher(  560):       InputState: mMotionMementos: {deviceId= -1, hovering=0}, 
+03-17 18:49:04.340 I/InputDispatcher(  560):   TouchModePerDisplay:
+03-17 18:49:04.340 I/InputDispatcher(  560):     Display: 0 TouchMode: 1
+03-17 18:49:04.340 I/InputDispatcher(  560):   Configuration:
+03-17 18:49:04.340 I/InputDispatcher(  560):     KeyRepeatDelay: 50ms
+03-17 18:49:04.340 I/InputDispatcher(  560):     KeyRepeatTimeout: 400ms
+03-17 18:49:04.340 I/InputDispatcher(  560):     LatencyTracker:
+03-17 18:49:04.340 I/InputDispatcher(  560):       mTimelines.size() = 16
+03-17 18:49:04.340 I/InputDispatcher(  560):       mEventTimes.size() = 16
+03-17 18:49:04.340 I/InputDispatcher(  560):     LatencyAggregator:
+03-17 18:49:04.340 I/InputDispatcher(  560):       Sketches:
+03-17 18:49:04.340 I/InputDispatcher(  560):         mDownSketches[0]-&gt;num_values = 160 size = 0.2KB mMoveSketches[0]-&gt;num_values = 574 size = 0.3KB
+03-17 18:49:04.340 I/InputDispatcher(  560):         mDownSketches[1]-&gt;num_values = 0 size = 0.0KB mMoveSketches[1]-&gt;num_values = 0 size = 0.0KB
+03-17 18:49:04.340 I/InputDispatcher(  560):         mDownSketches[2]-&gt;num_values = 0 size = 0.0KB mMoveSketches[2]-&gt;num_values = 0 size = 0.0KB
+03-17 18:49:04.340 I/InputDispatcher(  560):         mDownSketches[3]-&gt;num_values = 0 size = 0.0KB mMoveSketches[3]-&gt;num_values = 0 size = 0.0KB
+03-17 18:49:04.340 I/InputDispatcher(  560):         mDownSketches[4]-&gt;num_values = 0 size = 0.0KB mMoveSketches[4]-&gt;num_values = 0 size = 0.0KB
+03-17 18:49:04.340 I/InputDispatcher(  560):         mDownSketches[5]-&gt;num_values = 0 size = 0.0KB mMoveSketches[5]-&gt;num_values = 0 size = 0.0KB
+03-17 18:49:04.340 I/InputDispatcher(  560):         mDownSketches[6]-&gt;num_values = 0 size = 0.0KB mMoveSketches[6]-&gt;num_values = 0 size = 0.0KB
+03-17 18:49:04.340 I/InputDispatcher(  560):       mNumSketchEventsProcessed=734
+03-17 18:49:04.340 I/InputDispatcher(  560):       mLastSlowEventTime=0
+03-17 18:49:04.340 I/InputDispatcher(  560):       mNumEventsSinceLastSlowEventReport = 0
+03-17 18:49:04.340 I/InputDispatcher(  560):       mNumSkippedSlowEvents = 0
+03-17 18:49:04.340 I/InputDispatcher(  560):   InputTracer: Disabled
+03-17 18:49:04.644 W/InputManager(  560): Input event injection from pid 32053 failed.</pre></div>
+</main>
+<script>
+function filterRows(f){
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.querySelectorAll('#events-table tbody tr').forEach(r=>{
+    if(f==='all'){r.style.display='';}
+    else if(f==='ok'){r.style.display=r.dataset.status==='ok'?'':'none';}
+    else if(f==='fail'){r.style.display=r.dataset.status!=='ok'?'':'none';}
+    else{r.style.display=r.dataset.action===f?'':'none';}
+  });
+}
+document.querySelectorAll('.sidebar .nav-item').forEach(a=>{
+  a.addEventListener('click',()=>{
+    document.querySelectorAll('.sidebar .nav-item').forEach(n=>n.classList.remove('active'));
+    a.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>

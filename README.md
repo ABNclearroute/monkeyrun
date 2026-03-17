@@ -18,9 +18,9 @@ Lightweight, CI/CD friendly, single binary — no Appium, no complex setup.
 
 ## Demo
 
-<!-- TODO: Add screenshots or GIF demo of a test run and report -->
+<video src="assets/demo.mov" controls width="600"></video>
 
-*Screenshot of HTML report coming soon.*
+> **[View sample HTML report](assets/demo-report.html)** — a self-contained Playwright-style dark-themed report with timeline, crash cards, screenshots, and logs.
 
 ## Requirements
 
